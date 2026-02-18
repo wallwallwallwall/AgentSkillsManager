@@ -99,7 +99,7 @@ struct SidebarView: View {
             HStack {
                 Image(systemName: viewModel.colorScheme == .dark ? "moon.fill" : "sun.max.fill")
                     .foregroundColor(.secondary)
-                Text(viewModel.colorScheme == .dark ? "深色模式" : "浅色模式")
+                Text(viewModel.colorScheme == .dark ? L.darkMode : L.lightMode)
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -123,7 +123,7 @@ struct SidebarView: View {
             HStack {
                 Image(systemName: "globe")
                     .foregroundColor(.secondary)
-                Text(viewModel.language == .chinese ? "语言" : "Language")
+                Text(L.languageLabel)
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -149,7 +149,7 @@ struct SidebarView: View {
 
             // Detected Agents Summary
             VStack(alignment: .leading, spacing: 8) {
-                Text("已检测到 \(viewModel.detectedAgents.count) 个 Agent")
+                Text(String(format: L.detectedAgents, viewModel.detectedAgents.count))
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -184,7 +184,7 @@ struct SidebarTabButton: View {
                     .foregroundColor(isSelected ? .white : tab.color)
                     .frame(width: 28, height: 28)
 
-                Text(tab.rawValue)
+                Text(tab.displayName)
                     .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
                     .foregroundColor(isSelected ? .white : .primary)
 
@@ -239,9 +239,9 @@ struct MarketplaceView: View {
             // Header with Search
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Skill管理")
+                    Text(L.marketplaceTitle)
                         .font(.title2.bold())
-                    Text("从仓库浏览和安装 Skills")
+                    Text(L.marketplaceSubtitle)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -250,7 +250,7 @@ struct MarketplaceView: View {
 
                 // Repository Filter
                 Menu {
-                    Button("全部仓库") {
+                    Button(L.allRepositories) {
                         viewModel.selectedRepositoryId = nil
                     }
                     Divider()
@@ -263,7 +263,7 @@ struct MarketplaceView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "shippingbox")
                             .font(.caption)
-                        Text(viewModel.selectedRepositoryId == nil ? "全部仓库" : (viewModel.repositories.first { $0.id == viewModel.selectedRepositoryId }?.name ?? "全部仓库"))
+                        Text(viewModel.selectedRepositoryId == nil ? L.allRepositories : (viewModel.repositories.first { $0.id == viewModel.selectedRepositoryId }?.name ?? L.allRepositories))
                             .font(.subheadline)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
@@ -279,7 +279,7 @@ struct MarketplaceView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    TextField("搜索 Skills...", text: $viewModel.searchText)
+                    TextField(L.search + " Skills...", text: $viewModel.searchText)
                         .textFieldStyle(.plain)
                         .frame(width: 180)
                     if !viewModel.searchText.isEmpty {
@@ -311,30 +311,30 @@ struct MarketplaceView: View {
                         .font(.system(size: 56))
                         .foregroundColor(.orange.opacity(0.6))
 
-                    Text("发现 Skills")
+                    Text(L.marketplaceEmptyTitle)
                         .font(.title2.bold())
                         .foregroundColor(.primary)
 
                     if viewModel.repositories.isEmpty {
-                        Text("您还没有添加任何 Skill 仓库\n请先在「Skill仓库」页面添加仓库")
+                        Text(L.noRepositoriesMessage)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
 
-                        Button("前往添加仓库") {
+                        Button(L.goAddRepository) {
                             viewModel.selectedTab = .repositories
                         }
                         .buttonStyle(.borderedProminent)
                         .padding(.top, 8)
                     } else if viewModel.repositories.allSatisfy({ $0.lastSyncDate == nil }) {
-                        Text("您有 \(viewModel.repositories.count) 个仓库待同步\n同步后即可浏览和安装 Skills")
+                        Text(L.repositoriesNeedSync)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
 
-                        Button("立即同步所有仓库") {
+                        Button(L.syncAllNow) {
                             Task {
                                 await viewModel.syncAllRepositories()
                             }
@@ -342,7 +342,7 @@ struct MarketplaceView: View {
                         .buttonStyle(.borderedProminent)
                         .padding(.top, 8)
                     } else {
-                        Text("该仓库暂无 Skills\n请尝试同步或选择其他仓库")
+                        Text(L.noSkillsInRepository)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -388,7 +388,7 @@ struct RemoteSkillRow: View {
     }
 
     var repositoryName: String {
-        viewModel.repositories.first { $0.id == skill.repositoryId }?.name ?? "未知仓库"
+        viewModel.repositories.first { $0.id == skill.repositoryId }?.name ?? L.unknownRepository
     }
 
     var body: some View {
@@ -547,9 +547,9 @@ struct RepositoriesView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Skill仓库")
+                    Text(L.repositoryTitle)
                         .font(.title2.bold())
-                    Text("\(viewModel.repositories.count) 个仓库 · 同步后可安装 Skills")
+                    Text(String(format: L.repositorySubtitle, viewModel.repositories.count))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -562,13 +562,13 @@ struct RepositoriesView: View {
                             await viewModel.syncAllRepositories()
                         }
                     }) {
-                        Label("全部同步", systemImage: "arrow.clockwise")
+                        Label(L.syncAll, systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
                 }
 
                 Button(action: { showingAddRepo = true }) {
-                    Label("添加", systemImage: "plus")
+                    Label(L.add, systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -584,16 +584,16 @@ struct RepositoriesView: View {
                         .font(.system(size: 56))
                         .foregroundColor(.blue.opacity(0.6))
 
-                    Text("管理 Skill 仓库")
+                    Text(L.manageRepositories)
                         .font(.title2.bold())
 
-                    Text("添加 GitHub 仓库来发现更多 Skills\n我们已为您预设了 5 个常用仓库")
+                    Text(L.noRepositoriesDesc)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
 
-                    Button("添加第一个仓库") {
+                    Button(L.addFirstRepository) {
                         showingAddRepo = true
                     }
                     .buttonStyle(.borderedProminent)
@@ -668,7 +668,7 @@ struct RepositoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundColor(.red)
-                            Text("同步失败")
+                            Text(L.syncFailed)
                                 .font(.caption)
                                 .foregroundColor(.red)
                         }
@@ -679,7 +679,7 @@ struct RepositoryRow: View {
                     }
                 } else if repository.lastSyncDate != nil {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("已同步")
+                        Text(L.synced)
                             .font(.caption)
                             .foregroundColor(.green)
                         Text("\(repository.skills.count) skills")
@@ -687,7 +687,7 @@ struct RepositoryRow: View {
                             .foregroundColor(.secondary)
                     }
                 } else {
-                    Text("未同步")
+                    Text(L.notSynced)
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
@@ -700,7 +700,7 @@ struct RepositoryRow: View {
                         case .success(let message):
                             viewModel.showToast("\(repository.name) \(message)", type: .success)
                         case .failure(_):
-                            viewModel.showToast("同步失败", type: .error)
+                            viewModel.showToast(L.syncFailed, type: .error)
                         }
                     }
                 }) {
@@ -757,7 +757,7 @@ struct SyncErrorDetailView: View {
                     .font(.title2)
                     .foregroundColor(.red)
 
-                Text("同步失败: \(repositoryName)")
+                Text("\(L.syncFailed): \(repositoryName)")
                     .font(.headline)
 
                 Spacer()
@@ -775,12 +775,12 @@ struct SyncErrorDetailView: View {
             // Error Message
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("错误详情")
+                    Text(L.errorDetails)
                         .font(.subheadline.bold())
 
                     Spacer()
 
-                    Button("复制") {
+                    Button(L.copy) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(errorMessage, forType: .string)
                     }
@@ -790,7 +790,7 @@ struct SyncErrorDetailView: View {
                 }
 
                 ScrollView {
-                    Text(errorMessage.isEmpty ? "未知错误" : errorMessage)
+                    Text(errorMessage.isEmpty ? L.unknownError : errorMessage)
                         .font(.system(.callout, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -808,15 +808,15 @@ struct SyncErrorDetailView: View {
 
             // Common Causes
             VStack(alignment: .leading, spacing: 6) {
-                Text("可能原因:")
+                Text(L.possibleCauses)
                     .font(.caption.bold())
                     .foregroundColor(.secondary)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("• 网络连接问题")
-                    Text("• 仓库地址不存在")
-                    Text("• 分支名称错误")
-                    Text("• Git 未安装")
+                    Text("• \(L.errorNetwork)")
+                    Text("• \(L.errorNotFound)")
+                    Text("• \(L.errorBranch)")
+                    Text("• \(L.errorGit)")
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -826,7 +826,7 @@ struct SyncErrorDetailView: View {
             Spacer()
 
             // Close Button
-            Button("关闭") {
+            Button(L.close) {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
@@ -844,9 +844,9 @@ struct AgentsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Local Agents")
+                    Text(L.agentsTitle)
                         .font(.title2.bold())
-                    Text("管理已安装的 AI 工具")
+                    Text(L.agentsSubtitle)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -856,7 +856,7 @@ struct AgentsView: View {
                 Button(action: {
                     viewModel.scanLocalAgents()
                 }) {
-                    Label("重新扫描", systemImage: "arrow.clockwise")
+                    Label(L.rescan, systemImage: "arrow.clockwise")
                 }
             }
             .padding()
@@ -871,17 +871,17 @@ struct AgentsView: View {
                         .font(.system(size: 56))
                         .foregroundColor(.green.opacity(0.6))
 
-                    Text("未检测到 Local Agents")
+                    Text(L.noAgents)
                         .font(.title2.bold())
 
-                    Text("请先安装 AI 工具，如 Claude Code、Codex 等\n安装后点击「重新扫描」按钮")
+                    Text(L.noAgentsDescription)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("支持的 AI 工具:")
+                        Text(L.status + ":")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         HStack(spacing: 12) {
@@ -903,13 +903,13 @@ struct AgentsView: View {
                 .padding()
             } else {
                 List {
-                    Section("已检测到的模型") {
+                    Section(L.detected) {
                         ForEach(viewModel.detectedAgents) { agent in
                             AgentRow(viewModel: viewModel, agent: agent)
                         }
                     }
 
-                    Section("未检测到的模型") {
+                    Section(L.undetectedAgents) {
                         ForEach(viewModel.agents.filter { !$0.detected }) { agent in
                             AgentRow(viewModel: viewModel, agent: agent)
                         }
@@ -957,14 +957,14 @@ struct AgentRow: View {
                         .font(.headline)
 
                     HStack(spacing: 8) {
-                        Text(agent.detected ? "已安装" : "未安装")
+                        Text(agent.detected ? L.installed : L.notInstalled)
                             .font(.caption)
                             .foregroundColor(agent.detected ? .green : .secondary)
 
                         if agent.detected && enabledCount > 0 {
                             Text("•")
                                 .foregroundColor(.secondary)
-                            Text("\(enabledCount) skills 已启用")
+                            Text(String(format: L.skillsCount, enabledCount) + " " + L.enabled.lowercased())
                                 .font(.caption)
                                 .foregroundColor(.blue)
                         }
@@ -989,7 +989,7 @@ struct AgentRow: View {
                                 .font(.system(size: 10))
                         }
 
-                        Button("配置") {
+                        Button(L.configure) {
                             viewModel.openAgentConfig(agent)
                         }
                         .buttonStyle(.borderless)
@@ -1016,13 +1016,13 @@ struct AgentRow: View {
                         HStack {
                             Image(systemName: "info.circle")
                                 .foregroundColor(.secondary)
-                            Text("没有已安装的 Skills")
+                            Text(L.noSkillsInstalled)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
                         }
                     } else {
-                        Text("管理启用的 Skills")
+                        Text(L.manageEnabledSkills)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
@@ -1073,9 +1073,9 @@ struct InstalledSkillsView: View {
             // Header with actions
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("已安装的 Skills")
+                    Text(L.installedSkillsTitle)
                         .font(.title2.bold())
-                    Text("管理已下载的 Skills 并分配给 Agent")
+                    Text(L.installedSkillsSubtitle)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -1086,21 +1086,21 @@ struct InstalledSkillsView: View {
                     Button {
                         showingZIPImporter = true
                     } label: {
-                        Label("从 ZIP 安装", systemImage: "doc.zipper")
+                        Label(L.importFromZIP, systemImage: "doc.zipper")
                     }
                     .buttonStyle(.bordered)
 
                     Button {
                         showingLocalImporter = true
                     } label: {
-                        Label("导入本地", systemImage: "arrow.down.doc")
+                        Label(L.importLocal, systemImage: "arrow.down.doc")
                     }
                     .buttonStyle(.bordered)
 
                     Button {
                         viewModel.selectedTab = .marketplace
                     } label: {
-                        Label("发现技能", systemImage: "sparkles")
+                        Label(L.discoverSkills, systemImage: "sparkles")
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -1124,27 +1124,27 @@ struct InstalledSkillsView: View {
                     }
 
                     VStack(spacing: 8) {
-                        Text("暂无已安装的 Skills")
+                        Text(L.noInstalledSkills)
                             .font(.title3.bold())
 
-                        Text("从仓库发现并安装技能，或导入已有的技能")
+                        Text(L.noInstalledSkillsDesc)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
 
                     HStack(spacing: 12) {
-                        Button("从 ZIP 安装") {
+                        Button(L.importFromZIP) {
                             showingZIPImporter = true
                         }
                         .buttonStyle(.bordered)
 
-                        Button("导入本地") {
+                        Button(L.importLocal) {
                             showingLocalImporter = true
                         }
                         .buttonStyle(.bordered)
 
-                        Button("发现技能") {
+                        Button(L.discoverSkills) {
                             viewModel.selectedTab = .marketplace
                         }
                         .buttonStyle(.borderedProminent)
@@ -1159,7 +1159,7 @@ struct InstalledSkillsView: View {
                 // Stats Bar
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
-                        Text("已安装")
+                        Text(L.installedCount)
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Text("\(viewModel.installedSkills.count)")
@@ -1260,7 +1260,7 @@ struct InstalledSkillRow: View {
 
                     if assignedCount > 0 {
                         Text("·")
-                        Label("已分配给 \(assignedCount) 个模型", systemImage: "cpu")
+                        Label(String(format: L.assignedToAgents, assignedCount), systemImage: "cpu")
                             .foregroundColor(.blue)
                     }
                 }
@@ -1323,19 +1323,19 @@ struct RemoteSkillDetailView: View {
                     Divider()
 
                     // Info
-                    InfoSection(title: "作者") {
+                    InfoSection(title: L.author) {
                         Text(skill.author)
                     }
 
-                    InfoSection(title: "版本") {
+                    InfoSection(title: L.version) {
                         Text(skill.version)
                     }
 
-                    InfoSection(title: "许可证") {
+                    InfoSection(title: L.license) {
                         Text(skill.license)
                     }
 
-                    InfoSection(title: "命令") {
+                    InfoSection(title: L.command) {
                         HStack {
                             Text(skill.command)
                                 .font(.system(.body, design: .monospaced))
@@ -1353,7 +1353,7 @@ struct RemoteSkillDetailView: View {
                         .cornerRadius(8)
                     }
 
-                    InfoSection(title: "支持的平台") {
+                    InfoSection(title: L.supportedPlatforms) {
                         FlowLayout(spacing: 8) {
                             ForEach(skill.platforms, id: \.self) { platform in
                                 Text(platform)
@@ -1372,14 +1372,14 @@ struct RemoteSkillDetailView: View {
                         Divider()
 
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("启用此 Skill")
+                            Text(L.enableThisSkill)
                                 .font(.headline)
 
                             if viewModel.detectedAgents.isEmpty {
                                 HStack {
                                     Image(systemName: "exclamationmark.triangle")
                                         .foregroundColor(.orange)
-                                    Text("未检测到 Agent")
+                                    Text(L.noAgentsDetected)
                                         .foregroundColor(.secondary)
                                 }
                                 .padding()
@@ -1421,17 +1421,17 @@ struct RemoteSkillDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Skill 详情")
+            .navigationTitle(L.skillDetails)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") {
+                    Button(L.close) {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .destructiveAction) {
                     if isInstalled {
-                        Button("卸载") {
+                        Button(L.uninstall) {
                             if let installedSkill = viewModel.installedSkills.first(where: { $0.originalRemoteId == skill.id && $0.repositoryId == skill.repositoryId }) {
                                 viewModel.uninstallSkill(installedSkill)
                             }
@@ -1442,10 +1442,10 @@ struct RemoteSkillDetailView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     if isInstalled {
-                        Button("已安装") {}
+                        Button(L.installed) {}
                         .disabled(true)
                     } else {
-                        Button("安装") {
+                        Button(L.install) {
                             viewModel.installSkill(skill)
                         }
                         .buttonStyle(.borderedProminent)
@@ -1493,7 +1493,7 @@ struct InstalledSkillDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         // 标题行
                         HStack {
-                            Text("选择要配置的 Local Agents")
+                            Text(L.selectAgents)
                                 .font(.headline)
                             Spacer()
                         }
@@ -1502,7 +1502,7 @@ struct InstalledSkillDetailView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundColor(.orange)
-                                Text("未检测到 Local Agents，请先安装 AI 工具")
+                                Text(L.noAgentsDetectedInstallFirst)
                                     .foregroundColor(.secondary)
                                 Spacer()
                             }
@@ -1533,7 +1533,7 @@ struct InstalledSkillDetailView: View {
                         // 快捷操作按钮
                         if !viewModel.detectedAgents.isEmpty {
                             HStack(spacing: 12) {
-                                Button("全部启用") {
+                                Button(L.allEnable) {
                                     viewModel.agents.filter { $0.detected }.forEach { agent in
                                         if !viewModel.isSkillEnabledForAgent(skill, agent: agent) {
                                             viewModel.toggleSkillForAgent(skill, agent: agent)
@@ -1544,7 +1544,7 @@ struct InstalledSkillDetailView: View {
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
 
-                                Button("全部禁用") {
+                                Button(L.allDisable) {
                                     viewModel.agents.filter { $0.detected }.forEach { agent in
                                         if viewModel.isSkillEnabledForAgent(skill, agent: agent) {
                                             viewModel.toggleSkillForAgent(skill, agent: agent)
@@ -1564,12 +1564,12 @@ struct InstalledSkillDetailView: View {
                     Divider()
 
                     // Info
-                    InfoSection(title: "安装路径") {
+                    InfoSection(title: L.installPath) {
                         Text(skill.localPath)
                             .font(.system(.body, design: .monospaced))
                     }
 
-                    InfoSection(title: "安装时间") {
+                    InfoSection(title: L.installDate) {
                         Text(skill.installDate, style: .date)
                     }
 
@@ -1577,16 +1577,16 @@ struct InstalledSkillDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("管理 Skill")
+            .navigationTitle(L.manageSkill)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") {
+                    Button(L.close) {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .destructiveAction) {
-                    Button("卸载") {
+                    Button(L.uninstall) {
                         viewModel.uninstallSkill(skill)
                         dismiss()
                     }
@@ -1658,10 +1658,10 @@ struct ZIPImportView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("从 ZIP 安装 Skill")
+                    Text(L.importZIPTitle)
                         .font(.title3.bold())
 
-                    Text("选择包含 Skill 的 ZIP 文件\n将自动解压并安装")
+                    Text(L.zipImportDescription)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -1705,13 +1705,13 @@ struct ZIPImportView: View {
                 }
 
                 if isImporting {
-                    ProgressView("正在导入...")
+                    ProgressView(L.importing)
                         .progressViewStyle(.circular)
                 } else {
                     Button {
                         selectZIPFile()
                     } label: {
-                        Label(selectedPath == nil ? "选择 ZIP 文件" : "更换文件", systemImage: "folder")
+                        Label(selectedPath == nil ? L.selectZIP : L.changeFile, systemImage: "folder")
                             .frame(maxWidth: 200)
                     }
                     .buttonStyle(.bordered)
@@ -1722,13 +1722,13 @@ struct ZIPImportView: View {
             .padding()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
+                    Button(L.cancel) {
                         isPresented = false
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("导入") {
+                    Button(L.importTitle) {
                         importZIP()
                     }
                     .disabled(selectedPath == nil || isImporting)
@@ -1745,7 +1745,7 @@ struct ZIPImportView: View {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.allowedContentTypes = [.zip]
-        panel.message = "选择 Skill ZIP 文件"
+        panel.message = L.selectSkillZIPFile
 
         if panel.runModal() == .OK {
             selectedPath = panel.url?.path
@@ -1799,10 +1799,10 @@ struct LocalImportView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text("导入本地 Skill")
+                    Text(L.importDirectoryTitle)
                         .font(.title3.bold())
 
-                    Text("选择包含 Skill 文件的目录\n将复制到安装目录")
+                    Text(L.localImportDescription)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -1830,7 +1830,7 @@ struct LocalImportView: View {
                     .padding(.horizontal)
 
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("名称:")
+                        Text(L.nameLabel)
                             .font(.system(size: 14))
                             .frame(width: 60, alignment: .trailing)
                         TextField("my-skill", text: $skillName)
@@ -1855,13 +1855,13 @@ struct LocalImportView: View {
                 }
 
                 if isImporting {
-                    ProgressView("正在导入...")
+                    ProgressView(L.importing)
                         .progressViewStyle(.circular)
                 } else {
                     Button {
                         selectDirectory()
                     } label: {
-                        Label(selectedPath == nil ? "选择目录" : "更换目录", systemImage: "folder")
+                        Label(selectedPath == nil ? L.selectDirectory : L.changeDirectory, systemImage: "folder")
                             .frame(maxWidth: 200)
                     }
                     .buttonStyle(.bordered)
@@ -1872,13 +1872,13 @@ struct LocalImportView: View {
             .padding()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
+                    Button(L.cancel) {
                         isPresented = false
                     }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("导入") {
+                    Button(L.importTitle) {
                         importDirectory()
                     }
                     .disabled(selectedPath == nil || skillName.isEmpty || isImporting)
@@ -1894,7 +1894,7 @@ struct LocalImportView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.message = "选择 Skill 目录"
+        panel.message = L.selectSkillDirectory
 
         if panel.runModal() == .OK {
             selectedPath = panel.url?.path
@@ -1940,20 +1940,20 @@ struct AddRepositoryView: View {
     var body: some View {
         VStack(spacing: 20) {
             // 标题
-            Text("添加仓库")
+            Text(L.addRepository)
                 .font(.title2.bold())
                 .padding(.top, 8)
 
             // 表单
             Form {
-                Section("仓库信息") {
-                    TextField("名称", text: $name, prompt: Text("awesome-claude-skills"))
+                Section(L.repositoryInfo) {
+                    TextField(L.skillName, text: $name, prompt: Text("awesome-claude-skills"))
                     TextField("GitHub URL", text: $url, prompt: Text("https://github.com/username/repo"))
-                    TextField("分支", text: $branch, prompt: Text("main"))
-                    TextField("Skill 路径", text: $skillPath, prompt: Text("/ (根目录)"))
+                    TextField(L.branch, text: $branch, prompt: Text("main"))
+                    TextField(L.skillPath, text: $skillPath, prompt: Text("/ (root)"))
                 }
 
-                Section("示例") {
+                Section(L.examples) {
                     Text("• ComposioHQ/awesome-claude-skills")
                     Text("• anthropics/skills")
                     Text("• openai/skills")
@@ -1967,12 +1967,12 @@ struct AddRepositoryView: View {
 
             // 按钮
             HStack(spacing: 12) {
-                Button("取消") {
+                Button(L.cancel) {
                     isPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("添加") {
+                Button(L.add) {
                     viewModel.addRepository(name: name, url: url, branch: branch, skillPath: skillPath)
                     isPresented = false
                 }
@@ -2011,17 +2011,17 @@ struct EditRepositoryView: View {
     var body: some View {
         VStack(spacing: 20) {
             // 标题
-            Text("编辑仓库")
+            Text(L.editRepository)
                 .font(.title2.bold())
                 .padding(.top, 8)
 
             // 表单
             Form {
-                Section("仓库信息") {
-                    TextField("名称", text: $name)
+                Section(L.repositoryInfo) {
+                    TextField(L.skillName, text: $name)
                     TextField("GitHub URL", text: $url)
-                    TextField("分支", text: $branch)
-                    TextField("Skill 路径", text: $skillPath)
+                    TextField(L.branch, text: $branch)
+                    TextField(L.skillPath, text: $skillPath)
                 }
             }
             .formStyle(.grouped)
@@ -2030,12 +2030,12 @@ struct EditRepositoryView: View {
 
             // 按钮
             HStack(spacing: 12) {
-                Button("取消") {
+                Button(L.cancel) {
                     isPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("保存") {
+                Button(L.save) {
                     viewModel.updateRepository(repository, name: name, url: url, branch: branch, skillPath: skillPath)
                     isPresented = false
                 }
