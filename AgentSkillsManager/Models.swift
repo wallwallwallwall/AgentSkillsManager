@@ -283,6 +283,185 @@ struct Agent: Identifiable, Codable, Hashable {
     ]
 }
 
+// MARK: - Language Support
+enum AppLanguage: String, CaseIterable {
+    case chinese = "zh"
+    case english = "en"
+
+    var displayName: String {
+        switch self {
+        case .chinese: return "中文"
+        case .english: return "English"
+        }
+    }
+}
+
+// MARK: - Localization
+struct L {
+    static var language: AppLanguage = .chinese
+
+    static func setLanguage(_ lang: AppLanguage) {
+        language = lang
+    }
+
+    // Common
+    static var ok: String { language == .chinese ? "确定" : "OK" }
+    static var cancel: String { language == .chinese ? "取消" : "Cancel" }
+    static var close: String { language == .chinese ? "关闭" : "Close" }
+    static var save: String { language == .chinese ? "保存" : "Save" }
+    static var edit: String { language == .chinese ? "编辑" : "Edit" }
+    static var delete: String { language == .chinese ? "删除" : "Delete" }
+    static var add: String { language == .chinese ? "添加" : "Add" }
+    static var install: String { language == .chinese ? "安装" : "Install" }
+    static var uninstall: String { language == .chinese ? "卸载" : "Uninstall" }
+    static var installed: String { language == .chinese ? "已安装" : "Installed" }
+    static var notInstalled: String { language == .chinese ? "未安装" : "Not Installed" }
+    static var sync: String { language == .chinese ? "同步" : "Sync" }
+    static var syncing: String { language == .chinese ? "同步中..." : "Syncing..." }
+    static var synced: String { language == .chinese ? "已同步" : "Synced" }
+    static var notSynced: String { language == .chinese ? "未同步" : "Not Synced" }
+    static var syncFailed: String { language == .chinese ? "同步失败" : "Sync Failed" }
+    static var copy: String { language == .chinese ? "复制" : "Copy" }
+    static var search: String { language == .chinese ? "搜索" : "Search" }
+    static var enable: String { language == .chinese ? "启用" : "Enable" }
+    static var enabled: String { language == .chinese ? "已启用" : "Enabled" }
+    static var disable: String { language == .chinese ? "禁用" : "Disable" }
+    static var disabled: String { language == .chinese ? "已禁用" : "Disabled" }
+    static var configure: String { language == .chinese ? "配置" : "Configure" }
+    static var apply: String { language == .chinese ? "应用" : "Apply" }
+
+    // Sidebar
+    static var repositoriesTab: String { language == .chinese ? "Skill 仓库" : "Repositories" }
+    static var marketplaceTab: String { language == .chinese ? "Skill 管理" : "Marketplace" }
+    static var agentsTab: String { language == .chinese ? "Local Agents" : "Local Agents" }
+    static var installedTab: String { language == .chinese ? "已安装" : "Installed" }
+    static var detectedAgents: String { language == .chinese ? "已检测到 %d 个 Agent" : "Detected %d Agents" }
+    static var darkMode: String { language == .chinese ? "深色模式" : "Dark Mode" }
+    static var lightMode: String { language == .chinese ? "浅色模式" : "Light Mode" }
+    static var languageLabel: String { language == .chinese ? "语言" : "Language" }
+
+    // Repository View
+    static var repositoryTitle: String { language == .chinese ? "Skill 仓库" : "Skill Repositories" }
+    static var repositorySubtitle: String { language == .chinese ? "%d 个仓库" : "%d Repositories" }
+    static var syncAll: String { language == .chinese ? "全部同步" : "Sync All" }
+    static var addRepository: String { language == .chinese ? "添加仓库" : "Add Repository" }
+    static var editRepository: String { language == .chinese ? "编辑仓库" : "Edit Repository" }
+    static var repositoryName: String { language == .chinese ? "仓库名称" : "Repository Name" }
+    static var repositoryURL: String { language == .chinese ? "GitHub URL" : "GitHub URL" }
+    static var branch: String { language == .chinese ? "分支" : "Branch" }
+    static var skillPath: String { language == .chinese ? "Skill 路径" : "Skill Path" }
+    static var noRepositories: String { language == .chinese ? "暂无仓库" : "No Repositories" }
+    static var noRepositoriesDesc: String { language == .chinese ? "添加 GitHub 仓库来发现更多 Skills" : "Add GitHub repositories to discover more skills" }
+
+    // Marketplace
+    static var marketplaceTitle: String { language == .chinese ? "Skill 管理" : "Skill Management" }
+    static var marketplaceSubtitle: String { language == .chinese ? "从仓库浏览和安装 Skills" : "Browse and install skills from repositories" }
+    static var allRepositories: String { language == .chinese ? "全部仓库" : "All Repositories" }
+    static var noSkills: String { language == .chinese ? "暂无 Skills" : "No Skills" }
+    static var author: String { language == .chinese ? "作者" : "Author" }
+    static var version: String { language == .chinese ? "版本" : "Version" }
+    static var license: String { language == .chinese ? "许可证" : "License" }
+    static var command: String { language == .chinese ? "命令" : "Command" }
+    static var platforms: String { language == .chinese ? "支持的平台" : "Platforms" }
+    static var fromRepository: String { language == .chinese ? "来源" : "From" }
+    static var skillDetail: String { language == .chinese ? "Skill 详情" : "Skill Detail" }
+    static var enableThisSkill: String { language == .chinese ? "启用此 Skill" : "Enable This Skill" }
+    static var selectAgents: String { language == .chinese ? "选择要配置的 Local Agents" : "Select Local Agents to Configure" }
+    static var noAgentsDetected: String { language == .chinese ? "未检测到 Agent" : "No Agents Detected" }
+    static var noAgentsDescription: String { language == .chinese ? "请先安装 AI 工具" : "Please install AI tools first" }
+    static var allEnable: String { language == .chinese ? "全部启用" : "Enable All" }
+    static var allDisable: String { language == .chinese ? "全部禁用" : "Disable All" }
+
+    // Agents View
+    static var agentsTitle: String { language == .chinese ? "Local Agents" : "Local Agents" }
+    static var agentsSubtitle: String { language == .chinese ? "管理已安装的 AI 工具" : "Manage installed AI tools" }
+    static var rescan: String { language == .chinese ? "重新扫描" : "Rescan" }
+    static var noAgents: String { language == .chinese ? "未检测到 Agent" : "No Agents Detected" }
+    static var enabledSkills: String { language == .chinese ? "已启用的 Skills" : "Enabled Skills" }
+    static var skillsCount: String { language == .chinese ? "%d 个 Skills" : "%d Skills" }
+    static var openConfig: String { language == .chinese ? "打开配置" : "Open Config" }
+    static var configFormat: String { language == .chinese ? "配置格式" : "Config Format" }
+    static var installPath: String { language == .chinese ? "安装路径" : "Install Path" }
+    static var status: String { language == .chinese ? "状态" : "Status" }
+    static var detected: String { language == .chinese ? "已检测" : "Detected" }
+    static var notDetected: String { language == .chinese ? "未检测" : "Not Detected" }
+
+    // Installed Skills
+    static var installedSkillsTitle: String { language == .chinese ? "已安装 Skills" : "Installed Skills" }
+    static var installedSkillsSubtitle: String { language == .chinese ? "管理已下载的 Skills 并分配给 Agent" : "Manage downloaded skills and assign to agents" }
+    static var noInstalledSkills: String { language == .chinese ? "暂无已安装 Skills" : "No Installed Skills" }
+    static var assignedTo: String { language == .chinese ? "已分配给" : "Assigned to" }
+    static var installDate: String { language == .chinese ? "安装日期" : "Install Date" }
+    static var importFromZIP: String { language == .chinese ? "从 ZIP 导入" : "Import from ZIP" }
+    static var importFromDirectory: String { language == .chinese ? "从目录导入" : "Import from Directory" }
+
+    // Import Views
+    static var importZIPTitle: String { language == .chinese ? "从 ZIP 安装 Skill" : "Install from ZIP" }
+    static var importDirectoryTitle: String { language == .chinese ? "导入本地 Skill" : "Import Local Skill" }
+    static var selectZIP: String { language == .chinese ? "选择 ZIP 文件" : "Select ZIP File" }
+    static var selectDirectory: String { language == .chinese ? "选择目录" : "Select Directory" }
+    static var changeFile: String { language == .chinese ? "更换文件" : "Change File" }
+    static var changeDirectory: String { language == .chinese ? "更换目录" : "Change Directory" }
+    static var importing: String { language == .chinese ? "正在导入..." : "Importing..." }
+    static var skillName: String { language == .chinese ? "名称" : "Name" }
+
+    // Error
+    static var error: String { language == .chinese ? "错误" : "Error" }
+    static var errorDetails: String { language == .chinese ? "错误详情" : "Error Details" }
+    static var possibleCauses: String { language == .chinese ? "可能原因" : "Possible Causes" }
+    static var errorNetwork: String { language == .chinese ? "网络连接问题" : "Network connection issue" }
+    static var errorNotFound: String { language == .chinese ? "仓库地址不存在" : "Repository not found" }
+    static var errorBranch: String { language == .chinese ? "分支名称错误" : "Incorrect branch name" }
+    static var errorGit: String { language == .chinese ? "Git 未安装" : "Git not installed" }
+
+    // Toast
+    static func syncSuccess(count: Int) -> String {
+        language == .chinese ? "同步成功 (\(count) skills)" : "Sync successful (\(count) skills)"
+    }
+    static func syncAllSuccess(count: Int) -> String {
+        language == .chinese ? "成功同步 \(count) 个仓库" : "Successfully synced \(count) repositories"
+    }
+    static func syncAllWarning(success: Int, failed: Int) -> String {
+        language == .chinese ? "同步完成: \(success) 成功, \(failed) 失败" : "Sync completed: \(success) success, \(failed) failed"
+    }
+
+    // Additional strings needed for ContentView
+    static var manageRepositories: String { language == .chinese ? "管理仓库" : "Manage Repositories" }
+    static var addFirstRepository: String { language == .chinese ? "添加第一个仓库" : "Add First Repository" }
+    static var unknownRepository: String { language == .chinese ? "未知仓库" : "Unknown Repository" }
+    static var skillsInstalled: String { language == .chinese ? "skills" : "skills" }
+    static var syncFailedWithName: String { language == .chinese ? "同步失败" : "Sync Failed" }
+    static var unknownError: String { language == .chinese ? "未知错误" : "Unknown Error" }
+    static var manageEnabledSkills: String { language == .chinese ? "管理启用的 Skills" : "Manage Enabled Skills" }
+    static var noSkillsInstalled: String { language == .chinese ? "没有已安装的 Skills" : "No Skills Installed" }
+    static var discoverSkills: String { language == .chinese ? "发现技能" : "Discover Skills" }
+    static var importLocal: String { language == .chinese ? "导入本地" : "Import Local" }
+    static var installedCount: String { language == .chinese ? "已安装" : "Installed" }
+    static var noInstalledSkillsDesc: String { language == .chinese ? "从仓库发现并安装技能，或导入已有的技能" : "Discover and install skills from repositories, or import existing skills" }
+    static var skillDetails: String { language == .chinese ? "Skill 详情" : "Skill Details" }
+    static var supportedPlatforms: String { language == .chinese ? "支持的平台" : "Supported Platforms" }
+    static var noAgentsDetectedInstallFirst: String { language == .chinese ? "未检测到 Local Agents，请先安装 AI 工具" : "No Local Agents detected. Please install AI tools first" }
+    static var manageSkill: String { language == .chinese ? "管理 Skill" : "Manage Skill" }
+    static var zipImportDescription: String { language == .chinese ? "选择包含 Skill 的 ZIP 文件\n将自动解压并安装" : "Select a ZIP file containing the Skill\nIt will be automatically extracted and installed" }
+    static var localImportDescription: String { language == .chinese ? "选择包含 Skill 文件的目录\n将复制到安装目录" : "Select a directory containing Skill files\nIt will be copied to the installation directory" }
+    static var nameLabel: String { language == .chinese ? "名称:" : "Name:" }
+    static var selectZIPFile: String { language == .chinese ? "选择 ZIP 文件" : "Select ZIP File" }
+    static var repositoryInfo: String { language == .chinese ? "仓库信息" : "Repository Info" }
+    static var examples: String { language == .chinese ? "示例" : "Examples" }
+    static var importTitle: String { language == .chinese ? "导入" : "Import" }
+    static var selectSkillZIPFile: String { language == .chinese ? "选择 Skill ZIP 文件" : "Select Skill ZIP File" }
+    static var selectSkillDirectory: String { language == .chinese ? "选择 Skill 目录" : "Select Skill Directory" }
+    static var undetectedAgents: String { language == .chinese ? "未检测到的模型" : "Undetected Agents" }
+    static var installedLower: String { language == .chinese ? "已安装" : "installed" }
+    static var assignedToAgents: String { language == .chinese ? "已分配给 %d 个模型" : "Assigned to %d agents" }
+    static var marketplaceEmptyTitle: String { language == .chinese ? "发现 Skills" : "Discover Skills" }
+    static var noRepositoriesMessage: String { language == .chinese ? "您还没有添加任何 Skill 仓库\n请先在「Skill仓库」页面添加仓库" : "You haven't added any skill repositories yet\nPlease add repositories in the Repositories tab" }
+    static var goAddRepository: String { language == .chinese ? "前往添加仓库" : "Go Add Repository" }
+    static var repositoriesNeedSync: String { language == .chinese ? "您有仓库待同步\n同步后即可浏览和安装 Skills" : "You have repositories waiting to sync\nSync to browse and install skills" }
+    static var syncAllNow: String { language == .chinese ? "立即同步所有仓库" : "Sync All Repositories Now" }
+    static var noSkillsInRepository: String { language == .chinese ? "该仓库暂无 Skills\n请尝试同步或选择其他仓库" : "No skills in this repository\nTry syncing or select another repository" }
+}
+
 // MARK: - View Model
 @MainActor
 class AppViewModel: ObservableObject {
@@ -298,17 +477,10 @@ class AppViewModel: ObservableObject {
     @Published var selectedAgentId: String?
     @Published var searchText: String = ""
     @Published var colorScheme: ColorScheme = .light
-    @Published var language: Language = .chinese
-
-    enum Language: String, CaseIterable {
-        case chinese = "zh"
-        case english = "en"
-
-        var displayName: String {
-            switch self {
-            case .chinese: return "中文"
-            case .english: return "English"
-            }
+    @Published var language: AppLanguage = .chinese {
+        didSet {
+            L.setLanguage(language)
+            saveData()
         }
     }
 
@@ -351,10 +523,19 @@ class AppViewModel: ObservableObject {
     }
 
     enum Tab: String, CaseIterable {
-        case repositories = "Skill仓库"
-        case marketplace = "Skill管理"
-        case agents = "Local Agents"
-        case installed = "已安装"
+        case repositories
+        case marketplace
+        case agents
+        case installed
+
+        var displayName: String {
+            switch self {
+            case .repositories: return L.repositoriesTab
+            case .marketplace: return L.marketplaceTab
+            case .agents: return L.agentsTab
+            case .installed: return L.installedTab
+            }
+        }
 
         var icon: String {
             switch self {
@@ -1786,8 +1967,9 @@ class AppViewModel: ObservableObject {
         }
         // 加载语言设置
         if let lang = defaults.string(forKey: "language"),
-           let savedLanguage = Language(rawValue: lang) {
+           let savedLanguage = AppLanguage(rawValue: lang) {
             language = savedLanguage
+            L.setLanguage(savedLanguage)
         }
     }
 
