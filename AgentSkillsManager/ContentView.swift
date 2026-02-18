@@ -119,6 +119,34 @@ struct SidebarView: View {
 
             Divider()
 
+            // Language Toggle
+            HStack {
+                Image(systemName: "globe")
+                    .foregroundColor(.secondary)
+                Text(viewModel.language == .chinese ? "语言" : "Language")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.language = viewModel.language == .chinese ? .english : .chinese
+                    }
+                }) {
+                    Text(viewModel.language.displayName)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+                }
+                .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            Divider()
+
             // Detected Agents Summary
             VStack(alignment: .leading, spacing: 8) {
                 Text("已检测到 \(viewModel.detectedAgents.count) 个 Agent")

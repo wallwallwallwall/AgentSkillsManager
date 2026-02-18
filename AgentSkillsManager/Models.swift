@@ -298,6 +298,19 @@ class AppViewModel: ObservableObject {
     @Published var selectedAgentId: String?
     @Published var searchText: String = ""
     @Published var colorScheme: ColorScheme = .light
+    @Published var language: Language = .chinese
+
+    enum Language: String, CaseIterable {
+        case chinese = "zh"
+        case english = "en"
+
+        var displayName: String {
+            switch self {
+            case .chinese: return "中文"
+            case .english: return "English"
+            }
+        }
+    }
 
     // Toast notifications
     @Published var toastMessage: String?
@@ -1745,6 +1758,8 @@ class AppViewModel: ObservableObject {
         }
         // 保存主题设置
         defaults.set(colorScheme == .dark ? "dark" : "light", forKey: "colorScheme")
+        // 保存语言设置
+        defaults.set(language.rawValue, forKey: "language")
     }
 
     private func loadData() {
@@ -1768,6 +1783,11 @@ class AppViewModel: ObservableObject {
         // 加载主题设置
         if let theme = defaults.string(forKey: "colorScheme") {
             colorScheme = (theme == "dark") ? .dark : .light
+        }
+        // 加载语言设置
+        if let lang = defaults.string(forKey: "language"),
+           let savedLanguage = Language(rawValue: lang) {
+            language = savedLanguage
         }
     }
 
