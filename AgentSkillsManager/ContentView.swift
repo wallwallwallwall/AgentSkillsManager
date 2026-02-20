@@ -925,6 +925,9 @@ struct AgentRow: View {
     @ObservedObject var viewModel: AppViewModel
     let agent: Agent
     @State private var isExpanded = false
+    @State private var showingConfigEditor = false
+    @State private var editingConfigPath = false
+    @State private var configPathInput = ""
 
     var enabledCount: Int {
         viewModel.installedSkills.filter { skill in
@@ -970,9 +973,47 @@ struct AgentRow: View {
                         }
                     }
 
-                    Text(agent.configPath)
-                        .font(.caption2)
+                    // Config Path - clickable to edit
+                    Button(action: {
+                        configPathInput = agent.configPath
+                        editingConfigPath = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text")
+                                .font(.caption2)
+                            Text(agent.configPath)
+                                .font(.caption2)
+                        }
                         .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .popover(isPresented: $editingConfigPath) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(L.configPath)
+                                .font(.subheadline.bold())
+
+                            TextField("~/.config/agent.json", text: $configPathInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 300)
+
+                            HStack {
+                                Spacer()
+
+                                Button(L.cancel) {
+                                    editingConfigPath = false
+                                }
+                                .buttonStyle(.borderless)
+
+                                Button(L.save) {
+                                    viewModel.updateAgentConfigPath(agent, newPath: configPathInput)
+                                    editingConfigPath = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(configPathInput.isEmpty || configPathInput == agent.configPath)
+                            }
+                        }
+                        .padding()
+                    }
                 }
 
                 Spacer()
@@ -990,7 +1031,7 @@ struct AgentRow: View {
                         }
 
                         Button(L.configure) {
-                            viewModel.openAgentConfig(agent)
+                            showingConfigEditor = true
                         }
                         .buttonStyle(.borderless)
                     }
@@ -1008,6 +1049,10 @@ struct AgentRow: View {
             }
 
             // Expanded Skills Section
+            .sheet(isPresented: $showingConfigEditor) {
+                EditAgentConfigView(viewModel: viewModel, agent: agent, isPresented: $showingConfigEditor)
+            }
+
             if isExpanded && agent.detected {
                 VStack(alignment: .leading, spacing: 12) {
                     Divider()
@@ -2047,6 +2092,161 @@ struct EditRepositoryView: View {
         }
         .padding()
         .frame(width: 400, height: 320)
+    }
+}
+
+// MARK: - Edit Agent Config View
+struct EditAgentConfigView: View {
+    @ObservedObject var viewModel: AppViewModel
+    let agent: Agent
+    @Binding var isPresented: Bool
+
+    @State private var configPath: String = ""
+    @State private var configContent: String = ""
+    @State private var isSaving = false
+    @State private var saveError: String?
+
+    init(viewModel: AppViewModel, agent: Agent, isPresented: Binding<Bool>) {
+        self.viewModel = viewModel
+        self.agent = agent
+        self._isPresented = isPresented
+        self._configPath = State(initialValue: agent.configPath)
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: agent.icon)
+                    .font(.title2)
+                    .foregroundColor(agent.color)
+
+                Text("\(agent.name) \(L.configure)")
+                    .font(.headline)
+
+                Spacer()
+
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .font(.title3)
+                }
+                .buttonStyle(.borderless)
+            }
+
+            Divider()
+
+            // Config Path Section
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L.configPath)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Button(L.open) {
+                        viewModel.openAgentConfig(agent)
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                }
+
+                HStack(spacing: 8) {
+                    TextField("~/.config/agent.json", text: $configPath)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button(L.save) {
+                        viewModel.updateAgentConfigPath(agent, newPath: configPath)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(configPath == agent.configPath)
+                }
+            }
+
+            Divider()
+
+            // Config Content Editor
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L.configFormat + ": \(agent.configFormat.rawValue.uppercased())")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    if isSaving {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else if let error = saveError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
+                    Button(L.save) {
+                        saveConfig()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(isSaving)
+                }
+
+                TextEditor(text: $configContent)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(.separatorColor), lineWidth: 1)
+                    )
+            }
+
+            Spacer()
+        }
+        .padding()
+        .frame(minWidth: 600, minHeight: 500)
+        .onAppear {
+            loadConfig()
+        }
+    }
+
+    private func loadConfig() {
+        if let content = viewModel.readAgentConfig(agent) {
+            configContent = content
+        } else {
+            // 创建默认内容
+            switch agent.configFormat {
+            case .json:
+                configContent = "{\n  \"skills\": []\n}"
+            case .toml:
+                configContent = "# \(agent.name) Configuration\n"
+            case .yaml:
+                configContent = "# \(agent.name) Configuration\n"
+            }
+        }
+    }
+
+    private func saveConfig() {
+        isSaving = true
+        saveError = nil
+
+        Task {
+            let success = await MainActor.run {
+                viewModel.saveAgentConfig(agent, content: configContent)
+            }
+
+            await MainActor.run {
+                isSaving = false
+                if success {
+                    saveError = nil
+                } else {
+                    saveError = L.error
+                }
+            }
+        }
     }
 }
 
