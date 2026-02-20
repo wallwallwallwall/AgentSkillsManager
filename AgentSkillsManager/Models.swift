@@ -125,7 +125,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Claude Code",
             icon: "message.circle.fill",
             colorHex: "F97316",
-            configPath: "~/.claude.json",
+            configPath: "~/.claude/skills/",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -135,7 +135,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "OpenAI Codex",
             icon: "terminal.fill",
             colorHex: "10A37F",
-            configPath: "~/.codex/config.toml",
+            configPath: "~/.codex/skills/",
             configFormat: .toml,
             detected: false,
             enabledSkillIds: []
@@ -145,7 +145,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "GitHub Copilot CLI",
             icon: "cpu",
             colorHex: "06B6D4",
-            configPath: "~/.copilot/config.json",
+            configPath: "~/.copilot/mcp-config.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -165,7 +165,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Cursor",
             icon: "cursorarrow",
             colorHex: "3B82F6",
-            configPath: "~/.cursor/mcp.json",
+            configPath: "~/.cursor/skills-cursor/",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -175,7 +175,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Gemini CLI",
             icon: "sparkle",
             colorHex: "8B5CF6",
-            configPath: "~/.gemini/config.json",
+            configPath: "~/.gemini/settings.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -195,8 +195,8 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Kimi CLI (Moonshot)",
             icon: "moon.fill",
             colorHex: "6366F1",
-            configPath: "~/.kimi/config.json",
-            configFormat: .json,
+            configPath: "~/.kimi/config.toml",
+            configFormat: .toml,
             detected: false,
             enabledSkillIds: []
         ),
@@ -205,7 +205,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Qwen CLI (通义千问)",
             icon: "wand.and.stars",
             colorHex: "F59E0B",
-            configPath: "~/.qwen/config.json",
+            configPath: "~/.qwen/settings.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -215,7 +215,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "VSCode:",
             icon: "code",
             colorHex: "007ACC",
-            configPath: "~/.vscode/skills/config.json",
+            configPath: "~/.vscode/mcp.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -225,7 +225,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Cursor Editor",
             icon: "cursorarrow",
             colorHex: "3B82F6",
-            configPath: "~/.cursor/skills/config.json",
+            configPath: "~/.cursor/mcp.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -235,7 +235,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Trae",
             icon: "bolt.fill",
             colorHex: "FF6B00",
-            configPath: "~/.trae/skills/config.json",
+            configPath: "~/.Trae/mcp.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -265,7 +265,7 @@ struct Agent: Identifiable, Codable, Hashable {
             name: "Windsurf",
             icon: "wind",
             colorHex: "06B6D4",
-            configPath: "~/.windsurf/skills/config.json",
+            configPath: "~/.codeium/windsurf/mcp_config.json",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -276,6 +276,26 @@ struct Agent: Identifiable, Codable, Hashable {
             icon: "person.2.fill",
             colorHex: "10A37F",
             configPath: "~/.codebuddy/skills/config.json",
+            configFormat: .json,
+            detected: false,
+            enabledSkillIds: []
+        ),
+        Agent(
+            id: "roo-code",
+            name: "Roo Code",
+            icon: "bird.fill",
+            colorHex: "D946EF",
+            configPath: "~/.roo/rules",
+            configFormat: .json,
+            detected: false,
+            enabledSkillIds: []
+        ),
+        Agent(
+            id: "cline",
+            name: "Cline",
+            icon: "terminal",
+            colorHex: "22D3EE",
+            configPath: "~/.cline/rules",
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
@@ -329,6 +349,7 @@ struct L {
     static var disabled: String { language == .chinese ? "已禁用" : "Disabled" }
     static var configure: String { language == .chinese ? "配置" : "Configure" }
     static var apply: String { language == .chinese ? "应用" : "Apply" }
+    static var open: String { language == .chinese ? "打开" : "Open" }
 
     // Sidebar
     static var repositoriesTab: String { language == .chinese ? "Skill 仓库" : "Repositories" }
@@ -381,6 +402,7 @@ struct L {
     static var skillsCount: String { language == .chinese ? "%d 个 Skills" : "%d Skills" }
     static var openConfig: String { language == .chinese ? "打开配置" : "Open Config" }
     static var configFormat: String { language == .chinese ? "配置格式" : "Config Format" }
+    static var configPath: String { language == .chinese ? "配置文件路径" : "Config Path" }
     static var installPath: String { language == .chinese ? "安装路径" : "Install Path" }
     static var status: String { language == .chinese ? "状态" : "Status" }
     static var detected: String { language == .chinese ? "已检测" : "Detected" }
@@ -816,9 +838,9 @@ class AppViewModel: ObservableObject {
 
             await MainActor.run {
                 if failCount == 0 {
-                    self.showToast("成功同步 \(successCount) 个仓库", type: .success)
+                    self.showToast(L.syncAllSuccess(count: successCount), type: .success)
                 } else {
-                    self.showToast("同步完成: \(successCount) 成功, \(failCount) 失败", type: .warning)
+                    self.showToast(L.syncAllWarning(success: successCount, failed: failCount), type: .warning)
                 }
             }
         }
@@ -875,13 +897,13 @@ class AppViewModel: ObservableObject {
                     if isNewClone || !isValidGitRepo {
                         // 新克隆 - 先尝试指定分支
                         task.arguments = ["-c", "GIT_HTTP_VERSION=1.1 git clone --depth 1 -b \(repository.branch) '\(repository.url)' '\(repoDir)' 2>&1"]
-                        try task.run()
-                        task.waitUntilExit()
 
-                        if task.terminationStatus != 0 {
+                        let terminationStatus = await self.runProcessAsync(task)
+
+                        if terminationStatus != 0 {
                             // 指定分支失败，清理目录并尝试不指定分支（自动检测默认分支）
                             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "未知错误"
+                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
 
                             // 删除可能部分创建的目录
                             try? fileManager.removeItem(atPath: repoDir)
@@ -896,15 +918,15 @@ class AppViewModel: ObservableObject {
 
                             // 不指定分支，让 git 自动检测默认分支
                             task2.arguments = ["-c", "GIT_HTTP_VERSION=1.1 git clone --depth 1 '\(repository.url)' '\(repoDir)' 2>&1 || (git config --global http.version HTTP/1.1 && git clone --depth 1 '\(repository.url)' '\(repoDir)')"]
-                            try task2.run()
-                            task2.waitUntilExit()
 
-                            if task2.terminationStatus == 0 {
+                            let terminationStatus2 = await self.runProcessAsync(task2)
+
+                            if terminationStatus2 == 0 {
                                 cloneSuccess = true
                             } else {
                                 let errorData2 = errorPipe2.fileHandleForReading.readDataToEndOfFile()
-                                let errorMessage2 = String(data: errorData2, encoding: .utf8) ?? "未知错误"
-                                finalErrorMessage = "尝试指定分支 '\(repository.branch)' 失败: \(finalErrorMessage)\n\n尝试默认分支也失败: \(errorMessage2)"
+                                let errorMessage2 = String(data: errorData2, encoding: .utf8) ?? "Unknown error"
+                                finalErrorMessage = "Branch '\(repository.branch)' failed: \(finalErrorMessage)\n\nDefault branch also failed: \(errorMessage2)"
                             }
                         } else {
                             cloneSuccess = true
@@ -912,12 +934,12 @@ class AppViewModel: ObservableObject {
                     } else {
                         // 已存在，执行 git pull
                         task.arguments = ["-c", "cd '\(repoDir)' && GIT_HTTP_VERSION=1.1 git pull origin \(repository.branch) 2>&1 || git pull origin \(repository.branch)"]
-                        try task.run()
-                        task.waitUntilExit()
-                        cloneSuccess = task.terminationStatus == 0
+
+                        let terminationStatus = await self.runProcessAsync(task)
+                        cloneSuccess = terminationStatus == 0
                         if !cloneSuccess {
                             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "拉取更新失败"
+                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "Pull failed"
                         }
                     }
 
@@ -955,6 +977,20 @@ class AppViewModel: ObservableObject {
                     }
                     continuation.resume(returning: .failure(error))
                 }
+            }
+        }
+    }
+
+    /// 异步执行 Process，不阻塞线程
+    private func runProcessAsync(_ process: Process) async -> Int32 {
+        await withCheckedContinuation { continuation in
+            process.terminationHandler = { task in
+                continuation.resume(returning: task.terminationStatus)
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: -1)
             }
         }
     }
@@ -1558,49 +1594,332 @@ class AppViewModel: ObservableObject {
             }
             saveData()
         }
+
+        // 实时更新 Agent 配置文件
+        applyConfigToAgent(agent)
     }
 
     func isSkillEnabledForAgent(_ skill: InstalledSkill, agent: Agent) -> Bool {
         agent.enabledSkillIds.contains(skill.id)
     }
 
-    // 应用配置到 Agent 配置文件
+    // 应用配置到 Agent - 根据 Agent 类型使用不同方式
     func applyConfigToAgent(_ agent: Agent) {
         let enabledSkills = installedSkills.filter { agent.enabledSkillIds.contains($0.id) }
-        let homeDir = NSHomeDirectory()
-        let configPath = agent.configPath.replacingOccurrences(of: "~", with: homeDir)
 
-        // 确保配置文件的父目录存在
-        let configDir = (configPath as NSString).deletingLastPathComponent
-        let fileManager = FileManager.default
-        try? fileManager.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+        print("Applying config for \(agent.name)")
+        print("Enabled skills: \(enabledSkills.map { $0.name })")
 
         switch agent.id {
         case "claude-code":
-            writeClaudeConfig(skills: enabledSkills, configPath: configPath)
-        case "codex":
-            writeCodexConfig(skills: enabledSkills, configPath: configPath)
-        case "copilot-cli":
-            writeCopilotConfig(skills: enabledSkills, configPath: configPath)
-        case "aider":
-            writeAiderConfig(skills: enabledSkills, configPath: configPath)
+            // Claude Code: 管理 ~/.claude/skills/ 目录下的 skill 文件夹
+            applySkillsToClaudeDirectory(agent: agent, skills: enabledSkills)
         case "cursor":
-            writeCursorConfig(skills: enabledSkills, configPath: configPath)
+            // Cursor: 管理 ~/.cursor/skills/ 目录下的 skill 文件夹
+            applySkillsToCursorDirectory(agent: agent, skills: enabledSkills)
+        case "codex":
+            // Codex: 管理 ~/.codex/skills/ 目录
+            applySkillsToCodexDirectory(agent: agent, skills: enabledSkills)
+        case "copilot-cli":
+            writeCopilotConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
+        case "aider":
+            writeAiderConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
         case "gemini-cli":
-            writeGeminiConfig(skills: enabledSkills, configPath: configPath)
+            writeGeminiConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
         case "glm-cli":
-            writeGLMConfig(skills: enabledSkills, configPath: configPath)
+            writeGLMConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
         case "kimi-cli":
-            writeKimiConfig(skills: enabledSkills, configPath: configPath)
+            writeKimiConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
         case "qwen-cli":
-            writeQwenConfig(skills: enabledSkills, configPath: configPath)
-        case "vscode", "cursor-editor", "trae", "antigravity", "qoder", "windsurf", "codebuddy":
-            writeEditorConfig(agent: agent, skills: enabledSkills, configPath: configPath)
+            writeQwenConfig(skills: enabledSkills, configPath: getAgentConfigPath(agent))
+        case "vscode", "cursor-editor", "antigravity", "qoder", "codebuddy":
+            writeEditorConfig(agent: agent, skills: enabledSkills, configPath: getAgentConfigPath(agent))
+        case "roo-code", "roo":
+            // Roo Code: 扫描 ~/.roo/rules/ 目录
+            applySkillsToDirectory(agent: agent, skills: enabledSkills, directory: "~/.roo/rules")
+        case "cline":
+            // Cline: 扫描 ~/.cline/rules/ 目录
+            applySkillsToDirectory(agent: agent, skills: enabledSkills, directory: "~/.cline/rules")
+        case "windsurf":
+            // Windsurf: 使用 ~/.codeium/windsurf/mcp_config.json 配置文件
+            applySkillsToMCPConfig(agent: agent, skills: enabledSkills, configPath: "~/.codeium/windsurf/mcp_config.json")
+        case "trae":
+            // Trae: 使用 ~/.Trae/mcp.json 配置文件
+            applySkillsToMCPConfig(agent: agent, skills: enabledSkills, configPath: "~/.Trae/mcp.json")
         default:
-            writeGenericJSONConfig(agent: agent, skills: enabledSkills, configPath: configPath)
+            // 默认使用目录方式
+            let defaultDir = "~/.\(agent.id)/skills"
+            applySkillsToDirectory(agent: agent, skills: enabledSkills, directory: defaultDir)
+        }
+    }
+
+    // 获取 Agent 的配置文件路径
+    private func getAgentConfigPath(_ agent: Agent) -> String {
+        let homeDir = NSHomeDirectory()
+        return agent.configPath.replacingOccurrences(of: "~", with: homeDir)
+    }
+
+    // MARK: - Claude Code: Skills 目录管理
+    private func applySkillsToClaudeDirectory(agent: Agent, skills: [InstalledSkill]) {
+        let homeDir = NSHomeDirectory()
+        let skillsDir = "\(homeDir)/.claude/skills"
+        let fileManager = FileManager.default
+
+        // 确保 skills 目录存在
+        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+
+        // 获取当前目录下所有的 skill 文件夹
+        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+
+        // 应该存在的 skills（启用的）
+        let enabledSkillNames = Set(skills.map { $0.name })
+
+        // 1. 添加新启用的 skills（创建符号链接）
+        for skill in skills {
+            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+
+            // 如果已存在但不是链接，先删除
+            if fileManager.fileExists(atPath: skillLinkPath) {
+                try? fileManager.removeItem(atPath: skillLinkPath)
+            }
+
+            // 创建符号链接
+            do {
+                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
+                print("Linked skill \(skill.name) to \(skillLinkPath)")
+            } catch {
+                print("Failed to link skill \(skill.name): \(error)")
+            }
         }
 
-        print("Applied config to \(agent.name) at \(configPath)")
+        // 2. 移除禁用的 skills（删除链接）
+        for existingSkill in existingSkills {
+            if !enabledSkillNames.contains(existingSkill) {
+                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
+                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("Removed skill link: \(existingSkill)")
+            }
+        }
+
+        print("Claude Code skills updated: \(skills.count) enabled")
+    }
+
+    // MARK: - 通用目录管理（适用于 Claude Code、Cursor、Codex、Roo Code 等）
+    private func applySkillsToDirectory(agent: Agent, skills: [InstalledSkill], directory: String) {
+        let homeDir = NSHomeDirectory()
+        let skillsDir = directory.replacingOccurrences(of: "~", with: homeDir)
+        let fileManager = FileManager.default
+
+        print("Applying skills to directory: \(skillsDir)")
+
+        // 确保 skills 目录存在
+        do {
+            try fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+        } catch {
+            print("Failed to create directory: \(error)")
+            return
+        }
+
+        // 获取当前目录下所有的 skill 文件夹
+        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+
+        // 应该存在的 skills（启用的）
+        let enabledSkillNames = Set(skills.map { $0.name })
+
+        // 1. 添加新启用的 skills（创建符号链接）
+        for skill in skills {
+            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+
+            // 如果已存在，先删除
+            if fileManager.fileExists(atPath: skillLinkPath) {
+                try? fileManager.removeItem(atPath: skillLinkPath)
+            }
+
+            // 创建符号链接
+            do {
+                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
+                print("Linked skill \(skill.name)")
+            } catch {
+                print("Failed to link skill \(skill.name): \(error)")
+            }
+        }
+
+        // 2. 移除禁用的 skills（删除链接）
+        for existingSkill in existingSkills {
+            if !enabledSkillNames.contains(existingSkill) {
+                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
+                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("Removed skill link: \(existingSkill)")
+            }
+        }
+
+        print("\(agent.name) skills updated: \(skills.count) enabled in \(skillsDir)")
+    }
+
+    // MARK: - MCP 配置管理（适用于 Copilot CLI、Windsurf、Trae 等）
+    private func applySkillsToMCPConfig(agent: Agent, skills: [InstalledSkill], configPath: String) {
+        let homeDir = NSHomeDirectory()
+        let mcpConfigPath = configPath.replacingOccurrences(of: "~", with: homeDir)
+        let fileManager = FileManager.default
+
+        print("Applying skills to MCP config: \(mcpConfigPath)")
+
+        // 读取现有配置
+        var config: [String: Any] = [:]
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: mcpConfigPath)),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            config = existing
+        }
+
+        // 构建 MCP servers 配置
+        var mcpServers: [String: Any] = [:]
+        for skill in skills {
+            let skillHomePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+            mcpServers[skill.name] = [
+                "command": "node",
+                "args": ["\(skillHomePath)/index.js"],
+                "env": [:]
+            ]
+        }
+
+        config["mcpServers"] = mcpServers
+
+        // 确保目录存在
+        let configDir = (mcpConfigPath as NSString).deletingLastPathComponent
+        try? fileManager.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+
+        // 写入配置
+        do {
+            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: mcpConfigPath))
+            print("\(agent.name) MCP config updated with \(skills.count) servers")
+        } catch {
+            print("Failed to write MCP config: \(error)")
+        }
+    }
+
+    // MARK: - Cursor: Skills 目录管理
+    private func applySkillsToCursorDirectory(agent: Agent, skills: [InstalledSkill]) {
+        let homeDir = NSHomeDirectory()
+        let skillsDir = "\(homeDir)/.cursor/skills-cursor"
+        let fileManager = FileManager.default
+
+        // 确保 skills 目录存在
+        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+
+        // 获取当前目录下所有的 skill 文件夹
+        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+
+        // 应该存在的 skills（启用的）
+        let enabledSkillNames = Set(skills.map { $0.name })
+
+        // 1. 添加新启用的 skills（创建符号链接）
+        for skill in skills {
+            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+
+            // 如果已存在，先删除
+            if fileManager.fileExists(atPath: skillLinkPath) {
+                try? fileManager.removeItem(atPath: skillLinkPath)
+            }
+
+            // 创建符号链接
+            do {
+                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
+                print("Linked skill \(skill.name) to \(skillLinkPath)")
+            } catch {
+                print("Failed to link skill \(skill.name): \(error)")
+            }
+        }
+
+        // 2. 移除禁用的 skills（删除链接）
+        for existingSkill in existingSkills {
+            if !enabledSkillNames.contains(existingSkill) {
+                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
+                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("Removed skill link: \(existingSkill)")
+            }
+        }
+
+        print("Cursor skills updated: \(skills.count) enabled in \(skillsDir)")
+    }
+
+    // MARK: - Codex: Skills 目录管理
+    private func applySkillsToCodexDirectory(agent: Agent, skills: [InstalledSkill]) {
+        let homeDir = NSHomeDirectory()
+        let skillsDir = "\(homeDir)/.codex/skills"
+        let fileManager = FileManager.default
+
+        // 确保 skills 目录存在
+        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+
+        // 获取当前目录下所有的 skill 文件夹
+        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+
+        // 应该存在的 skills（启用的）
+        let enabledSkillNames = Set(skills.map { $0.name })
+
+        // 1. 添加新启用的 skills（创建符号链接）
+        for skill in skills {
+            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+
+            // 如果已存在，先删除
+            if fileManager.fileExists(atPath: skillLinkPath) {
+                try? fileManager.removeItem(atPath: skillLinkPath)
+            }
+
+            // 创建符号链接
+            do {
+                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
+                print("Linked skill \(skill.name) to \(skillLinkPath)")
+            } catch {
+                print("Failed to link skill \(skill.name): \(error)")
+            }
+        }
+
+        // 2. 移除禁用的 skills（删除链接）
+        for existingSkill in existingSkills {
+            if !enabledSkillNames.contains(existingSkill) {
+                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
+                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("Removed skill link: \(existingSkill)")
+            }
+        }
+
+        print("Codex skills updated: \(skills.count) enabled")
+    }
+
+    /// 根据 Agent 类型获取默认配置文件路径
+    private func getDefaultConfigFilePath(inDirectory directory: String, for agent: Agent) -> String {
+        let normalizedDir = directory.hasSuffix("/") ? directory : directory + "/"
+
+        switch agent.id {
+        case "claude-code":
+            return normalizedDir + "config.json"
+        case "codex":
+            return normalizedDir + "config.toml"
+        case "cursor":
+            return normalizedDir + "mcp.json"
+        case "copilot-cli":
+            return normalizedDir + "config.json"
+        case "aider":
+            return normalizedDir + ".aider.conf.yml"
+        case "gemini-cli", "glm-cli", "kimi-cli", "qwen-cli":
+            return normalizedDir + "config.json"
+        default:
+            // 根据配置格式选择默认文件名
+            switch agent.configFormat {
+            case .json:
+                return normalizedDir + "config.json"
+            case .toml:
+                return normalizedDir + "config.toml"
+            case .yaml:
+                return normalizedDir + "config.yaml"
+            }
+        }
     }
 
     func applyAllConfigs() {
@@ -1707,21 +2026,27 @@ class AppViewModel: ObservableObject {
     }
 
     private func writeCursorConfig(skills: [InstalledSkill], configPath: String) {
-        // Cursor 使用 JSON 格式 (MCP 配置)
-        var config: [String: Any] = [
-            "mcpServers": [:]
-        ]
+        print("Writing Cursor config to: \(configPath)")
+        print("Skills count: \(skills.count)")
 
+        // Cursor 使用 JSON 格式 (MCP 配置)
+        var config: [String: Any] = [:]
+
+        // 读取现有配置（如果存在）
         if let data = try? Data(contentsOf: URL(fileURLWithPath: configPath)),
            let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             config = existing
+            print("Existing config loaded")
+        } else {
+            print("No existing config found, creating new")
         }
 
-        // Cursor 使用 mcpServers 格式
-        var mcpServers: [String: Any] = (config["mcpServers"] as? [String: Any]) ?? [:]
+        // Cursor 使用 mcpServers 格式 - 完全替换为当前启用的 skills
+        var mcpServers: [String: Any] = [:]
 
         for skill in skills {
             let skillHomePath = skill.localPath.replacingOccurrences(of: "~", with: NSHomeDirectory())
+            print("Adding skill: \(skill.name) at path: \(skillHomePath)")
             mcpServers[skill.name] = [
                 "command": "node",
                 "args": ["\(skillHomePath)/index.js"],
@@ -1731,8 +2056,12 @@ class AppViewModel: ObservableObject {
 
         config["mcpServers"] = mcpServers
 
-        if let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]) {
-            try? data.write(to: URL(fileURLWithPath: configPath))
+        do {
+            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: configPath))
+            print("Cursor config written successfully to \(configPath)")
+        } catch {
+            print("Failed to write Cursor config: \(error)")
         }
     }
 
@@ -1923,6 +2252,50 @@ class AppViewModel: ObservableObject {
         // 打开文件
         let url = URL(fileURLWithPath: configPath)
         NSWorkspace.shared.open(url)
+    }
+
+    // MARK: - Update Agent Config Path
+    func updateAgentConfigPath(_ agent: Agent, newPath: String) {
+        guard let index = agents.firstIndex(where: { $0.id == agent.id }) else { return }
+        agents[index].configPath = newPath
+        saveData()
+
+        // 自动将已启用的 skills 应用到新的配置文件
+        applyConfigToAgent(agents[index])
+    }
+
+    // MARK: - Read/Edit Config Content
+    func readAgentConfig(_ agent: Agent) -> String? {
+        let homeDir = NSHomeDirectory()
+        let configPath = agent.configPath.replacingOccurrences(of: "~", with: homeDir)
+
+        guard FileManager.default.fileExists(atPath: configPath),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: configPath)),
+              let content = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return content
+    }
+
+    func saveAgentConfig(_ agent: Agent, content: String) -> Bool {
+        let homeDir = NSHomeDirectory()
+        let configPath = agent.configPath.replacingOccurrences(of: "~", with: homeDir)
+
+        let fileManager = FileManager.default
+        let configDir = (configPath as NSString).deletingLastPathComponent
+
+        // 确保目录存在
+        if !fileManager.fileExists(atPath: configDir) {
+            try? fileManager.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+        }
+
+        do {
+            try content.write(toFile: configPath, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            print("Failed to save config: \(error)")
+            return false
+        }
     }
 
     // MARK: - Persistence
