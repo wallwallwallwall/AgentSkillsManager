@@ -6,32 +6,51 @@ AgentSkillsManager 是一款 macOS 原生应用，用于集中管理 AI Agent（
 
 - **仓库管理**：添加、编辑、同步 GitHub 上的 Skills 仓库
 - **Skill 市场**：浏览和安装来自多个仓库的 Skills
-- **Agent 配置**：将 Skills 分配给已安装的 AI Agent
+- **Agent 配置**：将 Skills 分配给已安装的 AI Agent，支持实时同步
+- **配置管理**：支持修改 Agent 配置文件路径和编辑配置文件内容
 - **本地导入**：支持从 ZIP 文件或本地目录导入自定义 Skills
 - **主题切换**：支持浅色/深色模式
+- **语言切换**：支持中文/英文界面
 - **自动检测**：自动扫描本地已安装的 AI Agent
+- **并发同步**：异步仓库同步，不阻塞 UI
 
 ## 支持的 Agent 类型
 
 AgentSkillsManager 目前支持以下 AI Agent：
 
-| Agent | 图标 | 状态 |
-|-------|------|------|
-| Claude Code | 🤖 | ✅ 支持 |
-| OpenAI Codex | 🧠 | ✅ 支持 |
-| GitHub Copilot CLI | 👨‍💻 | ✅ 支持 |
-| Aider | 🎯 | ✅ 支持 |
-| Cursor | ⚡ | ✅ 支持 |
-| Gemini CLI | 🔮 | ✅ 支持 |
-| GLM CLI | 📊 | ✅ 支持 |
-| Kimi CLI | 🌙 | ✅ 支持 |
-| Qwen CLI | 🌸 | ✅ 支持 |
-| VSCode: | 📝 | ✅ 支持 |
-| Trae | 🎨 | ✅ 支持 |
-| Windsurf | 🏄 | ✅ 支持 |
-| Roo Code | 🦘 | ✅ 支持 |
-| Cline | 💻 | ✅ 支持 |
-| Codeium | ⚛️ | ✅ 支持 |
+| Agent | 图标 | 状态 | 配置方式 | 默认路径 |
+|-------|------|------|----------|----------|
+| Claude Code | 🤖 | ✅ 支持 | 目录扫描 | `~/.claude/skills/` |
+| OpenAI Codex | 🧠 | ✅ 支持 | 目录扫描 | `~/.codex/skills/` |
+| GitHub Copilot CLI | 👨‍💻 | ✅ 支持 | MCP 配置 | `~/.copilot/mcp-config.json` |
+| Aider | 🎯 | ✅ 支持 | 配置文件 | `~/.aider.conf.yml` |
+| Cursor | ⚡ | ✅ 支持 | 目录扫描 | `~/.cursor/skills-cursor/` |
+| Gemini CLI | 🔮 | ✅ 支持 | 配置文件 | `~/.gemini/settings.json` |
+| GLM CLI | 📊 | ✅ 支持 | 配置文件 | `~/.glm/config.json` |
+| Kimi CLI | 🌙 | ✅ 支持 | 配置文件 | `~/.kimi/config.toml` |
+| Qwen CLI | 🌸 | ✅ 支持 | 配置文件 | `~/.qwen/settings.json` |
+| VSCode: | 📝 | ✅ 支持 | MCP 配置 | `~/.vscode/mcp.json` |
+| Trae | 🎨 | ✅ 支持 | MCP 配置 | `~/.Trae/mcp.json` |
+| Windsurf | 🏄 | ✅ 支持 | MCP 配置 | `~/.codeium/windsurf/mcp_config.json` |
+| Roo Code | 🦘 | ✅ 支持 | 目录扫描 | `~/.roo/rules/` |
+| Cline | 💻 | ✅ 支持 | 目录扫描 | `~/.cline/rules/` |
+
+### Agent 配置方式说明
+
+**目录扫描方式**：这些 Agent 会自动扫描指定目录下的 Skills 文件夹
+- Skills 通过符号链接方式管理
+- 启用 Skill 时创建链接，禁用时删除链接
+- 修改配置路径后会自动同步已启用的 Skills
+
+**MCP 配置方式**：这些 Agent 通过 MCP (Model Context Protocol) 配置文件管理
+- Skills 信息写入 JSON 配置文件
+- 支持实时更新配置
+- 可编辑配置文件内容
+
+**配置文件方式**：这些 Agent 使用各自的配置文件格式
+- YAML、TOML 或 JSON 格式
+- 支持修改配置文件路径
+- 支持编辑配置文件内容
 
 ## 支持的仓库类型
 
@@ -106,9 +125,21 @@ open AgentSkillsManager.xcodeproj
 ### 配置 Agent
 
 1. 切换到 "Local Agents" 标签
-2. 选择已检测到的 Agent
-3. 启用/禁用需要的 Skills
-4. 配置自动应用到 Agent
+2. 查看已检测到的 Agent 列表
+3. 点击 Agent 展开详情，启用/禁用需要的 Skills
+4. Skills 会自动同步到 Agent 的配置目录或配置文件
+
+#### 修改配置路径
+
+1. 在 Agent 列表中点击配置文件路径
+2. 输入新的配置路径（文件夹路径或文件路径）
+3. 点击保存，已启用的 Skills 会自动同步到新路径
+
+#### 编辑配置文件
+
+1. 点击 Agent 右侧的 "配置" 按钮
+2. 在弹出的编辑器中修改配置文件内容
+3. 点击保存即可生效
 
 ## 项目结构
 
@@ -133,11 +164,14 @@ AgentSkillsManager/
 
 ## 开发计划
 
-- [ ] 支持更多 AI Agent 类型
+- [x] 支持更多 AI Agent 类型
+- [x] Agent 配置路径自定义
+- [x] 配置文件实时编辑
 - [ ] Skills 评分和评价系统
 - [ ] 自动更新检查
 - [ ] 批量导入/导出配置
 - [ ] 插件系统支持
+- [ ] Windows 版本支持
 
 ## 贡献指南
 
