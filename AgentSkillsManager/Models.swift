@@ -627,6 +627,9 @@ class AppViewModel: ObservableObject {
         // 检查已安装 skill 的文件是否存在，自动清理无效的 skill
         cleanupMissingSkills()
 
+        // 清理隐藏目录（如 .git, .github 等）
+        cleanupHiddenSkills()
+
         setupNotificationHandlers()
     }
 
@@ -674,6 +677,46 @@ class AppViewModel: ObservableObject {
             let skillNames = removedSkills.joined(separator: ", ")
             showToast("检测到 \(removedSkills.count) 个 Skill 文件缺失，已自动清理配置", type: .warning)
         }
+    }
+
+    // MARK: - Cleanup Hidden Skills
+    /// 清理以 . 开头的隐藏目录（如 .git, .github 等）
+    func cleanupHiddenSkills() {
+        // 找出以 . 开头的隐藏 skill
+        let hiddenSkills = installedSkills.filter { skill in
+            skill.name.hasPrefix(".")
+        }
+
+        guard !hiddenSkills.isEmpty else { return }
+
+        print("[DEBUG] Found \(hiddenSkills.count) hidden skills to clean up: \(hiddenSkills.map { $0.name })")
+
+        for skill in hiddenSkills {
+            // 从所有 agent 中移除
+            for i in agents.indices {
+                if agents[i].enabledSkillIds.contains(skill.id) {
+                    agents[i].enabledSkillIds.remove(skill.id)
+                    // 重新应用配置
+                    if agents[i].detected {
+                        applyConfigToAgent(agents[i])
+                    }
+                }
+            }
+
+            // 删除本地文件
+            let homeDir = NSHomeDirectory()
+            let installPath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+            try? FileManager.default.removeItem(atPath: installPath)
+            print("[DEBUG] Removed hidden skill: \(skill.name)")
+        }
+
+        // 从已安装列表中移除
+        installedSkills.removeAll { skill in
+            skill.name.hasPrefix(".")
+        }
+
+        saveData()
+        print("[DEBUG] Hidden skills cleaned up successfully")
     }
 
     private func setupNotificationHandlers() {
@@ -1115,9 +1158,10 @@ class AppViewModel: ObservableObject {
         // 源路径：仓库中的 skill 目录
         let sourcePath = "\(repository.localPath)\(repository.skillPath)/\(skill.relativePath)"
 
-        // 目标路径：本地安装目录
-        let installDir = "\(homeDir)/.agent-skills/installed/\(skill.name)"
-        let localPath = "~/.agent-skills/installed/\(skill.name)"
+        // 目标路径：本地安装目录（使用 仓库名/skill名 的层级结构区分不同仓库的同名skill）
+        let sanitizedRepoName = repository.name.replacingOccurrences(of: "/", with: "-")
+        let installDir = "\(homeDir)/.agent-skills/installed/\(sanitizedRepoName)/\(skill.name)"
+        let localPath = "~/.agent-skills/installed/\(sanitizedRepoName)/\(skill.name)"
 
         // 确保安装目录存在
         do {
@@ -1256,12 +1300,12 @@ class AppViewModel: ObservableObject {
         let fileManager = FileManager.default
         let homeDir = NSHomeDirectory()
 
-        // 目标路径
-        let installDir = "\(homeDir)/.agent-skills/installed/\(name)"
-        let localPath = "~/.agent-skills/installed/\(name)"
+        // 目标路径：本地导入的 skill 使用 imported 作为仓库名
+        let installDir = "\(homeDir)/.agent-skills/installed/imported/\(name)"
+        let localPath = "~/.agent-skills/installed/imported/\(name)"
 
-        // 检查是否已存在
-        if installedSkills.contains(where: { $0.name == name }) {
+        // 检查是否已存在（检查相同仓库+skill名）
+        if installedSkills.contains(where: { $0.name == name && $0.localPath.contains("/imported/") }) {
             return .failure(NSError(domain: "Skill '\(name)' 已存在", code: 409))
         }
 
@@ -1689,12 +1733,18 @@ class AppViewModel: ObservableObject {
         // 获取当前目录下所有的 skill 文件夹
         let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
 
-        // 应该存在的 skills（启用的）
-        let enabledSkillNames = Set(skills.map { $0.name })
+        // 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
+        let enabledSkillLinkNames = Set(skills.map { skill -> String in
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            return "\(repoName)-\(skill.name)"
+        })
 
         // 1. 添加新启用的 skills（创建符号链接）
         for skill in skills {
-            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            // 从 localPath 提取仓库名，构造唯一的链接名
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillLinkName = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
             let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
 
             // 如果已存在但不是链接，先删除
@@ -1705,15 +1755,15 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill \(skill.name) to \(skillLinkPath)")
+                print("Linked skill \(skillLinkName) to \(skillLinkPath)")
             } catch {
-                print("Failed to link skill \(skill.name): \(error)")
+                print("Failed to link skill \(skillLinkName): \(error)")
             }
         }
 
         // 2. 移除禁用的 skills（删除链接）
         for existingSkill in existingSkills {
-            if !enabledSkillNames.contains(existingSkill) {
+            if !enabledSkillLinkNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
                 print("Removed skill link: \(existingSkill)")
@@ -1742,12 +1792,18 @@ class AppViewModel: ObservableObject {
         // 获取当前目录下所有的 skill 文件夹
         let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
 
-        // 应该存在的 skills（启用的）
-        let enabledSkillNames = Set(skills.map { $0.name })
+        // 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
+        let enabledSkillLinkNames = Set(skills.map { skill -> String in
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            return "\(repoName)-\(skill.name)"
+        })
 
         // 1. 添加新启用的 skills（创建符号链接）
         for skill in skills {
-            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            // 从 localPath 提取仓库名，构造唯一的链接名
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillLinkName = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
             let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
 
             // 如果已存在，先删除
@@ -1758,15 +1814,15 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill \(skill.name)")
+                print("Linked skill \(skillLinkName)")
             } catch {
-                print("Failed to link skill \(skill.name): \(error)")
+                print("Failed to link skill \(skillLinkName): \(error)")
             }
         }
 
         // 2. 移除禁用的 skills（删除链接）
         for existingSkill in existingSkills {
-            if !enabledSkillNames.contains(existingSkill) {
+            if !enabledSkillLinkNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
                 print("Removed skill link: \(existingSkill)")
@@ -1842,15 +1898,22 @@ class AppViewModel: ObservableObject {
         let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
         print("[DEBUG] Existing items in directory: \(existingSkills)")
 
-        // 应该存在的 skills（启用的）
-        let enabledSkillNames = Set(skills.map { $0.name })
+        // 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
+        let enabledSkillLinkNames = Set(skills.map { skill -> String in
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            return "\(repoName)-\(skill.name)"
+        })
 
         // 1. 添加新启用的 skills（创建符号链接）
         for skill in skills {
-            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            // 从 localPath 提取仓库名，构造唯一的链接名
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillLinkName = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
             let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
 
-            print("[DEBUG] Processing skill '\(skill.name)':")
+            print("[DEBUG] Processing skill '\(skill.name)' (repo: \(repoName)):")
+            print("[DEBUG]   Link name: \(skillLinkName)")
             print("[DEBUG]   Link path: \(skillLinkPath)")
             print("[DEBUG]   Source path: \(skillSourcePath)")
             print("[DEBUG]   Source exists: \(fileManager.fileExists(atPath: skillSourcePath))")
@@ -1868,15 +1931,15 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("[DEBUG]   ✓ Successfully linked '\(skill.name)'")
+                print("[DEBUG]   ✓ Successfully linked '\(skillLinkName)'")
             } catch {
-                print("[ERROR]   ✗ Failed to link '\(skill.name)': \(error)")
+                print("[ERROR]   ✗ Failed to link '\(skillLinkName)': \(error)")
             }
         }
 
         // 2. 移除禁用的 skills（删除链接）
         for existingSkill in existingSkills {
-            if !enabledSkillNames.contains(existingSkill) {
+            if !enabledSkillLinkNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 print("[DEBUG] Removing disabled skill: '\(existingSkill)'")
                 do {
@@ -1906,12 +1969,18 @@ class AppViewModel: ObservableObject {
         // 获取当前目录下所有的 skill 文件夹
         let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
 
-        // 应该存在的 skills（启用的）
-        let enabledSkillNames = Set(skills.map { $0.name })
+        // 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
+        let enabledSkillLinkNames = Set(skills.map { skill -> String in
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            return "\(repoName)-\(skill.name)"
+        })
 
         // 1. 添加新启用的 skills（创建符号链接）
         for skill in skills {
-            let skillLinkPath = "\(skillsDir)/\(skill.name)"
+            // 从 localPath 提取仓库名，构造唯一的链接名
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillLinkName = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
             let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
 
             // 如果已存在，先删除
@@ -1922,15 +1991,15 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill \(skill.name) to \(skillLinkPath)")
+                print("Linked skill \(skillLinkName) to \(skillLinkPath)")
             } catch {
-                print("Failed to link skill \(skill.name): \(error)")
+                print("Failed to link skill \(skillLinkName): \(error)")
             }
         }
 
         // 2. 移除禁用的 skills（删除链接）
         for existingSkill in existingSkills {
-            if !enabledSkillNames.contains(existingSkill) {
+            if !enabledSkillLinkNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
                 print("Removed skill link: \(existingSkill)")

@@ -1077,7 +1077,6 @@ struct AgentRow: View {
                                     get: { viewModel.isSkillEnabledForAgent(skill, agent: agent) },
                                     set: { newValue in
                                         viewModel.toggleSkillForAgent(skill, agent: agent)
-                                        viewModel.applyConfigToAgent(agent)
                                     }
                                 )) {
                                     HStack {
@@ -1437,7 +1436,6 @@ struct RemoteSkillDetailView: View {
                                             get: { viewModel.isSkillEnabledForAgent(installedSkill, agent: agent) },
                                             set: { _ in
                                                 viewModel.toggleSkillForAgent(installedSkill, agent: agent)
-                                                viewModel.applyConfigToAgent(agent)
                                             }
                                         )) {
                                             HStack {
@@ -1563,7 +1561,6 @@ struct InstalledSkillDetailView: View {
                                         isEnabled: viewModel.isSkillEnabledForAgent(skill, agent: agent),
                                         onToggle: {
                                             viewModel.toggleSkillForAgent(skill, agent: agent)
-                                            viewModel.applyConfigToAgent(agent)
                                         }
                                     )
                                     if index < viewModel.detectedAgents.count - 1 {
@@ -1582,7 +1579,6 @@ struct InstalledSkillDetailView: View {
                                     viewModel.agents.filter { $0.detected }.forEach { agent in
                                         if !viewModel.isSkillEnabledForAgent(skill, agent: agent) {
                                             viewModel.toggleSkillForAgent(skill, agent: agent)
-                                            viewModel.applyConfigToAgent(agent)
                                         }
                                     }
                                 }
@@ -1593,7 +1589,6 @@ struct InstalledSkillDetailView: View {
                                     viewModel.agents.filter { $0.detected }.forEach { agent in
                                         if viewModel.isSkillEnabledForAgent(skill, agent: agent) {
                                             viewModel.toggleSkillForAgent(skill, agent: agent)
-                                            viewModel.applyConfigToAgent(agent)
                                         }
                                     }
                                 }
