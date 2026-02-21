@@ -1004,6 +1004,11 @@ class AppViewModel: ObservableObject {
         }
 
         for item in contents {
+            // 过滤掉隐藏目录（以.开头的目录）
+            if item.hasPrefix(".") {
+                continue
+            }
+
             let itemPath = "\(path)/\(item)"
             var isDirectory: ObjCBool = false
 
@@ -1126,6 +1131,11 @@ class AppViewModel: ObservableObject {
         do {
             let contents = try fileManager.contentsOfDirectory(atPath: sourcePath)
             for item in contents {
+                // 跳过隐藏文件和目录（如 .git, .github 等）
+                if item.hasPrefix(".") {
+                    continue
+                }
+
                 let sourceItem = "\(sourcePath)/\(item)"
                 let destItem = "\(installDir)/\(item)"
 
@@ -1583,20 +1593,23 @@ class AppViewModel: ObservableObject {
                 agents[agentIndex].enabledSkillIds.insert(skill.id)
             }
             saveData()
-        }
 
-        // 更新 installed skill 的分配记录
-        if let skillIndex = installedSkills.firstIndex(where: { $0.id == skill.id }) {
-            if installedSkills[skillIndex].assignedAgentIds.contains(agent.id) {
-                installedSkills[skillIndex].assignedAgentIds.remove(agent.id)
-            } else {
-                installedSkills[skillIndex].assignedAgentIds.insert(agent.id)
+            // 使用更新后的 agent 对象
+            let updatedAgent = agents[agentIndex]
+
+            // 更新 installed skill 的分配记录
+            if let skillIndex = installedSkills.firstIndex(where: { $0.id == skill.id }) {
+                if installedSkills[skillIndex].assignedAgentIds.contains(agent.id) {
+                    installedSkills[skillIndex].assignedAgentIds.remove(agent.id)
+                } else {
+                    installedSkills[skillIndex].assignedAgentIds.insert(agent.id)
+                }
+                saveData()
             }
-            saveData()
-        }
 
-        // 实时更新 Agent 配置文件
-        applyConfigToAgent(agent)
+            // 实时更新 Agent 配置文件 - 使用更新后的 agent
+            applyConfigToAgent(updatedAgent)
+        }
     }
 
     func isSkillEnabledForAgent(_ skill: InstalledSkill, agent: Agent) -> Bool {
@@ -1607,8 +1620,13 @@ class AppViewModel: ObservableObject {
     func applyConfigToAgent(_ agent: Agent) {
         let enabledSkills = installedSkills.filter { agent.enabledSkillIds.contains($0.id) }
 
-        print("Applying config for \(agent.name)")
-        print("Enabled skills: \(enabledSkills.map { $0.name })")
+        print("[DEBUG] === applyConfigToAgent ===")
+        print("[DEBUG] Agent: \(agent.name) (id: \(agent.id))")
+        print("[DEBUG] Agent.enabledSkillIds: \(agent.enabledSkillIds)")
+        print("[DEBUG] installedSkills count: \(installedSkills.count)")
+        print("[DEBUG] installedSkills IDs: \(installedSkills.map { $0.id })")
+        print("[DEBUG] enabledSkills count: \(enabledSkills.count)")
+        print("[DEBUG] enabledSkills names: \(enabledSkills.map { $0.name })")
 
         switch agent.id {
         case "claude-code":
@@ -1806,11 +1824,23 @@ class AppViewModel: ObservableObject {
         let skillsDir = "\(homeDir)/.cursor/skills-cursor"
         let fileManager = FileManager.default
 
+        print("[DEBUG] Applying \(skills.count) skills to Cursor directory: \(skillsDir)")
+        for skill in skills {
+            print("[DEBUG] - Skill: '\(skill.name)', source: '\(skill.localPath)'")
+        }
+
         // 确保 skills 目录存在
-        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+            print("[DEBUG] Created/verified directory: \(skillsDir)")
+        } catch {
+            print("[ERROR] Failed to create directory: \(error)")
+            return
+        }
 
         // 获取当前目录下所有的 skill 文件夹
         let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+        print("[DEBUG] Existing items in directory: \(existingSkills)")
 
         // 应该存在的 skills（启用的）
         let enabledSkillNames = Set(skills.map { $0.name })
@@ -1820,17 +1850,27 @@ class AppViewModel: ObservableObject {
             let skillLinkPath = "\(skillsDir)/\(skill.name)"
             let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
 
+            print("[DEBUG] Processing skill '\(skill.name)':")
+            print("[DEBUG]   Link path: \(skillLinkPath)")
+            print("[DEBUG]   Source path: \(skillSourcePath)")
+            print("[DEBUG]   Source exists: \(fileManager.fileExists(atPath: skillSourcePath))")
+
             // 如果已存在，先删除
             if fileManager.fileExists(atPath: skillLinkPath) {
-                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("[DEBUG]   Removing existing item at link path")
+                do {
+                    try fileManager.removeItem(atPath: skillLinkPath)
+                } catch {
+                    print("[ERROR]   Failed to remove existing item: \(error)")
+                }
             }
 
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill \(skill.name) to \(skillLinkPath)")
+                print("[DEBUG]   ✓ Successfully linked '\(skill.name)'")
             } catch {
-                print("Failed to link skill \(skill.name): \(error)")
+                print("[ERROR]   ✗ Failed to link '\(skill.name)': \(error)")
             }
         }
 
@@ -1838,12 +1878,20 @@ class AppViewModel: ObservableObject {
         for existingSkill in existingSkills {
             if !enabledSkillNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
-                try? fileManager.removeItem(atPath: skillLinkPath)
-                print("Removed skill link: \(existingSkill)")
+                print("[DEBUG] Removing disabled skill: '\(existingSkill)'")
+                do {
+                    try fileManager.removeItem(atPath: skillLinkPath)
+                    print("[DEBUG]   ✓ Removed '\(existingSkill)'")
+                } catch {
+                    print("[ERROR]   ✗ Failed to remove '\(existingSkill)': \(error)")
+                }
             }
         }
 
-        print("Cursor skills updated: \(skills.count) enabled in \(skillsDir)")
+        // 验证最终状态
+        let finalItems = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+        print("[DEBUG] Final items in directory: \(finalItems)")
+        print("[DEBUG] Cursor skills updated: \(skills.count) enabled, \(finalItems.count) items in directory")
     }
 
     // MARK: - Codex: Skills 目录管理
