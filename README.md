@@ -13,6 +13,7 @@ AgentSkillsManager 是一款 macOS 原生应用，用于集中管理 AI Agent（
 - **语言切换**：支持中文/英文界面
 - **自动检测**：自动扫描本地已安装的 AI Agent
 - **并发同步**：异步仓库同步，不阻塞 UI
+- **同名 Skill 支持**：不同仓库的同名 Skill 可同时安装，互不冲突
 
 ## 支持的 Agent 类型
 
@@ -51,6 +52,38 @@ AgentSkillsManager 目前支持以下 AI Agent：
 - YAML、TOML 或 JSON 格式
 - 支持修改配置文件路径
 - 支持编辑配置文件内容
+
+## 同名 Skill 处理机制
+
+AgentSkillsManager 支持从多个仓库安装同名 Skill，通过以下机制避免冲突：
+
+### 安装目录结构
+
+Skill 按照 `仓库名/skill名` 的层级结构存储：
+
+```
+~/.agent-skills/installed/
+├── anthropics-skills/
+│   ├── web-search/
+│   └── code-review/
+├── openai-skills/
+│   ├── web-search/     # 同名但不冲突
+│   └── file-analysis/
+└── imported/           # 本地导入的 Skills
+    └── my-custom-skill/
+```
+
+### Agent 配置目录中的链接命名
+
+在 Agent 的配置目录（如 `~/.cursor/skills-cursor/`）中，符号链接使用 `仓库名-技能名` 的格式：
+
+```
+~/.cursor/skills-cursor/
+├── anthropics-skills-web-search -> ~/.agent-skills/installed/anthropics-skills/web-search
+└── openai-skills-web-search -> ~/.agent-skills/installed/openai-skills/web-search
+```
+
+这样可以确保同名 Skill 不会互相覆盖。
 
 ## 支持的仓库类型
 
@@ -162,11 +195,27 @@ AgentSkillsManager/
 - **UserDefaults**：本地数据持久化
 - **Git Command Line**：仓库同步管理
 
+## 已知问题修复
+
+### v1.0.1 (最新)
+- **修复**: Swift 值类型拷贝导致的 toggle 状态不同步问题
+- **修复**: 移除 UI 层多余的 `applyConfigToAgent` 调用，避免配置被覆盖
+- **修复**: 使用 `仓库名/skill名` 层级结构区分不同仓库的同名 skill
+- **修复**: 使用 `仓库名-技能名` 作为符号链接名避免 Agent 配置目录中的覆盖
+- **修复**: 隐藏目录（.git/.github）被错误安装和显示的问题
+- **修复**: 添加 `cleanupHiddenSkills` 自动清理已存在的隐藏目录
+
+### v1.0.0
+- 初始版本发布
+- 支持 15 种 AI Agent
+- 支持 Skills 仓库管理、安装、配置
+
 ## 开发计划
 
 - [x] 支持更多 AI Agent 类型
 - [x] Agent 配置路径自定义
 - [x] 配置文件实时编辑
+- [x] 同名 Skill 冲突处理
 - [ ] Skills 评分和评价系统
 - [ ] 自动更新检查
 - [ ] 批量导入/导出配置
