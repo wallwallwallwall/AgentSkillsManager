@@ -14,6 +14,16 @@ struct ContentView: View {
         .onAppear {
             viewModel.performInitialScan()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // 应用回到前台时检查已安装 skill 文件是否存在
+            viewModel.cleanupMissingSkills()
+        }
+        .onChange(of: viewModel.selectedTab) { newTab in
+            // 切换到"已安装"标签页时检查文件是否存在
+            if newTab == .installed {
+                viewModel.cleanupMissingSkills()
+            }
+        }
         .overlay(
             ToastOverlay(viewModel: viewModel)
         )

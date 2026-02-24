@@ -18,7 +18,7 @@ struct SkillRepository: Identifiable, Codable, Hashable {
             name: "anthropics-skills",
             url: "https://github.com/anthropics/skills",
             branch: "main",
-            skillPath: "/",
+            skillPath: "/skills",
             localPath: "",
             lastSyncDate: nil,
             skills: []
@@ -28,7 +28,7 @@ struct SkillRepository: Identifiable, Codable, Hashable {
             name: "openai-skills",
             url: "https://github.com/openai/skills",
             branch: "main",
-            skillPath: "/",
+            skillPath: "/skills",
             localPath: "",
             lastSyncDate: nil,
             skills: []
@@ -818,11 +818,22 @@ class AppViewModel: ObservableObject {
     @Published var syncingRepositoryIds: Set<UUID> = []
     @Published var repositorySyncErrors: [UUID: String] = [:]
 
+    // 修复 GitHub URL，将网页 URL 转换为 git URL
+    private func fixGitHubURL(_ url: String) -> String {
+        // 移除 GitHub 网页 URL 中的 /tree/... 部分
+        // 如: https://github.com/openai/skills/tree/main/skills/ -> https://github.com/openai/skills
+        if let range = url.range(of: "/tree/") {
+            return String(url[..<range.lowerBound])
+        }
+        return url
+    }
+
     func addRepository(name: String, url: String, branch: String = "main", skillPath: String = "/") {
+        let fixedURL = fixGitHubURL(url)
         let repo = SkillRepository(
             id: UUID(),
             name: name,
-            url: url,
+            url: fixedURL,
             branch: branch,
             skillPath: skillPath,
             localPath: "",
@@ -845,7 +856,7 @@ class AppViewModel: ObservableObject {
             repositories[index].name = name
         }
         if let url = url, !url.isEmpty {
-            repositories[index].url = url
+            repositories[index].url = fixGitHubURL(url)
         }
         if let branch = branch, !branch.isEmpty {
             repositories[index].branch = branch
@@ -918,12 +929,18 @@ class AppViewModel: ObservableObject {
         // 检查目录是否存在且是有效的 git 仓库
         let gitDir = "\(repoDir)/.git"
         let isValidGitRepo = fileManager.fileExists(atPath: gitDir)
-        let isNewClone = !fileManager.fileExists(atPath: repoDir)
+        var isNewClone = !fileManager.fileExists(atPath: repoDir)
 
         // 如果目录存在但不是有效的 git 仓库，删除它
         if fileManager.fileExists(atPath: repoDir) && !isValidGitRepo {
             print("Directory exists but is not a valid git repo, removing: \(repoDir)")
-            try? fileManager.removeItem(atPath: repoDir)
+            do {
+                try fileManager.removeItem(atPath: repoDir)
+                isNewClone = true  // 删除后需要重新克隆
+                print("Successfully removed invalid repo directory")
+            } catch {
+                print("Failed to remove directory: \(error)")
+            }
         }
 
         let outputPipe = Pipe()
@@ -938,51 +955,42 @@ class AppViewModel: ObservableObject {
                     var finalErrorMessage = ""
 
                     if isNewClone || !isValidGitRepo {
-                        // 新克隆 - 先尝试指定分支
-                        task.arguments = ["-c", "GIT_HTTP_VERSION=1.1 git clone --depth 1 -b \(repository.branch) '\(repository.url)' '\(repoDir)' 2>&1"]
+                        // 简化 git clone 命令
+                        task.arguments = ["-c", "git clone --depth 1 '\(repository.url)' '\(repoDir)'"]
 
+                        print("[GIT] Cloning \(repository.url) to \(repoDir)")
                         let terminationStatus = await self.runProcessAsync(task)
+                        print("[GIT] Clone status: \(terminationStatus)")
 
-                        if terminationStatus != 0 {
-                            // 指定分支失败，清理目录并尝试不指定分支（自动检测默认分支）
-                            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-
-                            // 删除可能部分创建的目录
-                            try? fileManager.removeItem(atPath: repoDir)
-
-                            // 重新创建 Process 用于第二次尝试
-                            let task2 = Process()
-                            task2.launchPath = "/bin/bash"
-                            let outputPipe2 = Pipe()
-                            let errorPipe2 = Pipe()
-                            task2.standardOutput = outputPipe2
-                            task2.standardError = errorPipe2
-
-                            // 不指定分支，让 git 自动检测默认分支
-                            task2.arguments = ["-c", "GIT_HTTP_VERSION=1.1 git clone --depth 1 '\(repository.url)' '\(repoDir)' 2>&1 || (git config --global http.version HTTP/1.1 && git clone --depth 1 '\(repository.url)' '\(repoDir)')"]
-
-                            let terminationStatus2 = await self.runProcessAsync(task2)
-
-                            if terminationStatus2 == 0 {
-                                cloneSuccess = true
-                            } else {
-                                let errorData2 = errorPipe2.fileHandleForReading.readDataToEndOfFile()
-                                let errorMessage2 = String(data: errorData2, encoding: .utf8) ?? "Unknown error"
-                                finalErrorMessage = "Branch '\(repository.branch)' failed: \(finalErrorMessage)\n\nDefault branch also failed: \(errorMessage2)"
-                            }
-                        } else {
+                        if terminationStatus == 0 {
                             cloneSuccess = true
+                        } else {
+                            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                            let errorMsg = String(data: errorData, encoding: .utf8) ?? ""
+                            let outputMsg = String(data: outputData, encoding: .utf8) ?? ""
+                            finalErrorMessage = "Clone failed: \(errorMsg) \(outputMsg)"
+                            print("[GIT ERROR] \(finalErrorMessage)")
+
+                            // 清理失败的部分克隆
+                            try? fileManager.removeItem(atPath: repoDir)
                         }
                     } else {
                         // 已存在，执行 git pull
-                        task.arguments = ["-c", "cd '\(repoDir)' && GIT_HTTP_VERSION=1.1 git pull origin \(repository.branch) 2>&1 || git pull origin \(repository.branch)"]
+                        task.arguments = ["-c", "cd '\(repoDir)' && git pull"]
 
+                        print("[GIT] Pulling \(repository.name)")
                         let terminationStatus = await self.runProcessAsync(task)
+                        print("[GIT] Pull status: \(terminationStatus)")
+
                         cloneSuccess = terminationStatus == 0
                         if !cloneSuccess {
                             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            finalErrorMessage = String(data: errorData, encoding: .utf8) ?? "Pull failed"
+                            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                            let errorMsg = String(data: errorData, encoding: .utf8) ?? ""
+                            let outputMsg = String(data: outputData, encoding: .utf8) ?? ""
+                            finalErrorMessage = "Pull failed: \(errorMsg) \(outputMsg)"
+                            print("[GIT ERROR] \(finalErrorMessage)")
                         }
                     }
 
@@ -1024,53 +1032,163 @@ class AppViewModel: ObservableObject {
         }
     }
 
-    /// 异步执行 Process，不阻塞线程
-    private func runProcessAsync(_ process: Process) async -> Int32 {
+    /// 异步执行 Process，不阻塞线程，带超时（默认60秒）
+    private func runProcessAsync(_ process: Process, timeout: TimeInterval = 60) async -> Int32 {
         await withCheckedContinuation { continuation in
+            var isCompleted = false
+
+            // 设置超时定时器
+            let timer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { _ in
+                guard !isCompleted else { return }
+                isCompleted = true
+                process.terminate()
+                print("Process timed out after \(timeout) seconds")
+                continuation.resume(returning: -2) // -2 表示超时
+            }
+
             process.terminationHandler = { task in
+                guard !isCompleted else { return }
+                isCompleted = true
+                timer.invalidate()
                 continuation.resume(returning: task.terminationStatus)
             }
+
             do {
                 try process.run()
             } catch {
+                guard !isCompleted else { return }
+                isCompleted = true
+                timer.invalidate()
                 continuation.resume(returning: -1)
             }
         }
     }
 
-    nonisolated private static func parseSkillsFromDirectory(_ path: String, repositoryId: UUID) -> [RemoteSkill] {
+    nonisolated private static func parseSkillsFromDirectory(_ path: String, repositoryId: UUID, maxDepth: Int = 3) -> [RemoteSkill] {
         let fileManager = FileManager.default
         var skills: [RemoteSkill] = []
 
-        guard let contents = try? fileManager.contentsOfDirectory(atPath: path) else {
-            return skills
-        }
+        print("[DEBUG] parseSkillsFromDirectory: path=\(path), maxDepth=\(maxDepth)")
 
-        for item in contents {
-            // 过滤掉隐藏目录（以.开头的目录）
-            if item.hasPrefix(".") {
+        // 扫描指定的 path 目录及其直接子目录
+        // 结构示例：/skills/.curated/web-search.md
+        // - /skills/ (depth 0) - 不扫描这里的文件
+        // - /skills/.curated/ (depth 1) - 扫描这里的 .md 文件
+
+        var scanPaths: [(String, String)] = [(path, "")]
+
+        // 使用队列进行广度优先扫描
+        var queue: [(path: String, relativePath: String, depth: Int)] = [(path, "", 0)]
+        var processedPaths = Set<String>()
+
+        while !queue.isEmpty {
+            let current = queue.removeFirst()
+
+            // 避免重复处理
+            if processedPaths.contains(current.relativePath) {
+                continue
+            }
+            processedPaths.insert(current.relativePath)
+
+            guard let contents = try? fileManager.contentsOfDirectory(atPath: current.path) else {
                 continue
             }
 
-            let itemPath = "\(path)/\(item)"
-            var isDirectory: ObjCBool = false
+            print("[DEBUG] Scanning directory: \(current.path), depth: \(current.depth), items: \(contents.count)")
 
-            guard fileManager.fileExists(atPath: itemPath, isDirectory: &isDirectory),
-                  isDirectory.boolValue else {
-                continue
-            }
+            for item in contents {
+                // 过滤常见非 skill 目录，但允许以 . 开头的 skill 目录（如 .curated, .system）
+                if item == "node_modules" || item == "vendor" || item == ".git" || item == ".github" || item == ".gitignore" {
+                    continue
+                }
 
-            // 尝试解析 skill.json 或 package.json
-            if let skill = parseSkillConfig(at: itemPath, name: item, repositoryId: repositoryId) {
-                skills.append(skill)
+                let itemPath = "\(current.path)/\(item)"
+                let currentRelativePath = current.relativePath.isEmpty ? item : "\(current.relativePath)/\(item)"
+
+                var isDirectory: ObjCBool = false
+                let exists = fileManager.fileExists(atPath: itemPath, isDirectory: &isDirectory)
+
+                guard exists else { continue }
+
+                print("[DEBUG] Found item: \(item), isDir: \(isDirectory.boolValue), depth: \(current.depth)")
+
+                if isDirectory.boolValue {
+                    // 情况1：目录下有 skill.json/README.md/SKILL.md → 这是一个 skill
+                    let isSkill = isSkillDirectory(at: itemPath)
+                    print("[DEBUG]   isSkillDirectory: \(isSkill)")
+                    if isSkill {
+                        if let skill = parseSkillConfig(at: itemPath, name: item, repositoryId: repositoryId, relativePath: currentRelativePath) {
+                            print("[DEBUG]   -> Added skill: \(skill.name)")
+                            skills.append(skill)
+                        }
+                    } else if current.depth < 2 {
+                        // 情况2：递归扫描子目录（最多2层）
+                        // 对于 openai/skills/.curated/cloudflare-deploy 这样的结构
+                        print("[DEBUG]   -> Queue subdir for scanning")
+                        queue.append((path: itemPath, relativePath: currentRelativePath, depth: current.depth + 1))
+                    }
+                } else if item.hasSuffix(".md") && !item.hasPrefix(".") && current.depth >= 1 && current.depth <= 2 {
+                    // 情况3：.md 文件本身就是一个 skill（如 web-search.md）
+                    // 处理第1-2层子目录中的 .md 文件
+                    // 如 .curated/web-search.md 或 .curated/subdir/doc.md
+                    let lowercasedItem = item.lowercased()
+                    if lowercasedItem == "readme.md" || lowercasedItem == "license.md" || lowercasedItem == "contributing.md" {
+                        continue
+                    }
+                    let skillName = String(item.dropLast(3)) // 去掉 .md
+                    if let skill = parseMarkdownSkill(at: itemPath, name: skillName, repositoryId: repositoryId, relativePath: currentRelativePath) {
+                        skills.append(skill)
+                    }
+                }
             }
         }
 
+        print("[DEBUG] Total skills found: \(skills.count)")
         return skills
     }
 
-    nonisolated private static func parseSkillConfig(at path: String, name: String, repositoryId: UUID) -> RemoteSkill? {
+    /// 检查目录是否是一个 skill 目录（包含 skill.json 或 README.md）
+    nonisolated private static func isSkillDirectory(at path: String) -> Bool {
         let fileManager = FileManager.default
+        return fileManager.fileExists(atPath: "\(path)/skill.json")
+            || fileManager.fileExists(atPath: "\(path)/README.md")
+            || fileManager.fileExists(atPath: "\(path)/SKILL.md")
+    }
+
+    /// 解析 markdown 文件作为 skill
+    nonisolated private static func parseMarkdownSkill(at path: String, name: String, repositoryId: UUID, relativePath: String) -> RemoteSkill? {
+        let fileManager = FileManager.default
+
+        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
+            return nil
+        }
+
+        // 提取标题（第一行 # 开头的）
+        var description = "Skill: \(name)"
+        let lines = content.components(separatedBy: .newlines)
+        if let titleLine = lines.first(where: { $0.hasPrefix("# ") }) {
+            description = titleLine.replacingOccurrences(of: "# ", with: "").trimmingCharacters(in: .whitespaces)
+        } else if let firstLine = lines.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            description = firstLine.trimmingCharacters(in: .whitespaces)
+        }
+
+        return RemoteSkill(
+            id: relativePath,
+            name: name,
+            description: description,
+            author: "Unknown",
+            version: "1.0.0",
+            license: "Unknown",
+            platforms: ["Claude Code"],
+            command: "/\(name)",
+            repositoryId: repositoryId,
+            relativePath: relativePath
+        )
+    }
+
+    nonisolated private static func parseSkillConfig(at path: String, name: String, repositoryId: UUID, relativePath: String? = nil) -> RemoteSkill? {
+        let fileManager = FileManager.default
+        let actualRelativePath = relativePath ?? name
 
         // 尝试读取 skill.json
         let skillJsonPath = "\(path)/skill.json"
@@ -1088,15 +1206,15 @@ class AppViewModel: ObservableObject {
             config = json
         }
 
-        // 如果没有配置文件，从 README 或目录名推断
+        // 如果没有配置文件，从 README.md 或 SKILL.md 或目录名推断
         if config == nil {
-            return Self.createSkillFromDirectory(path: path, name: name, repositoryId: repositoryId)
+            return Self.createSkillFromDirectory(path: path, name: name, repositoryId: repositoryId, relativePath: actualRelativePath)
         }
 
         guard let config = config else { return nil }
 
         return RemoteSkill(
-            id: config["id"] as? String ?? name,
+            id: config["id"] as? String ?? actualRelativePath,
             name: config["name"] as? String ?? name,
             description: config["description"] as? String ?? "No description",
             author: config["author"] as? String ?? "Unknown",
@@ -1105,19 +1223,23 @@ class AppViewModel: ObservableObject {
             platforms: config["platforms"] as? [String] ?? ["Claude Code"],
             command: config["command"] as? String ?? "/\(name)",
             repositoryId: repositoryId,
-            relativePath: name
+            relativePath: actualRelativePath
         )
     }
 
-    nonisolated private static func createSkillFromDirectory(path: String, name: String, repositoryId: UUID) -> RemoteSkill? {
+    nonisolated private static func createSkillFromDirectory(path: String, name: String, repositoryId: UUID, relativePath: String? = nil) -> RemoteSkill? {
         let fileManager = FileManager.default
+        let actualRelativePath = relativePath ?? name
 
-        // 尝试读取 README.md
+        // 尝试读取 README.md 或 SKILL.md
         let readmePath = "\(path)/README.md"
+        let skillMdPath = "\(path)/SKILL.md"
         var description = "Skill: \(name)"
 
-        if fileManager.fileExists(atPath: readmePath),
-           let content = try? String(contentsOfFile: readmePath, encoding: .utf8) {
+        let mdPath = fileManager.fileExists(atPath: readmePath) ? readmePath : skillMdPath
+
+        if fileManager.fileExists(atPath: mdPath),
+           let content = try? String(contentsOfFile: mdPath, encoding: .utf8) {
             // 提取第一行作为描述
             let lines = content.components(separatedBy: .newlines)
             if let firstLine = lines.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
@@ -1126,7 +1248,7 @@ class AppViewModel: ObservableObject {
         }
 
         return RemoteSkill(
-            id: name,
+            id: actualRelativePath,
             name: name,
             description: description,
             author: "Unknown",
@@ -1135,7 +1257,7 @@ class AppViewModel: ObservableObject {
             platforms: ["Claude Code"],
             command: "/\(name)",
             repositoryId: repositoryId,
-            relativePath: name
+            relativePath: actualRelativePath
         )
     }
 
@@ -1173,29 +1295,47 @@ class AppViewModel: ObservableObject {
 
         // 复制文件
         do {
-            let contents = try fileManager.contentsOfDirectory(atPath: sourcePath)
-            for item in contents {
-                // 跳过隐藏文件和目录（如 .git, .github 等）
-                if item.hasPrefix(".") {
-                    continue
-                }
+            var isSourceDirectory: ObjCBool = false
+            let sourceExists = fileManager.fileExists(atPath: sourcePath, isDirectory: &isSourceDirectory)
 
-                let sourceItem = "\(sourcePath)/\(item)"
-                let destItem = "\(installDir)/\(item)"
+            guard sourceExists else {
+                showToast("源文件不存在: \(sourcePath)", type: .error)
+                return
+            }
 
-                var isDirectory: ObjCBool = false
-                if fileManager.fileExists(atPath: sourceItem, isDirectory: &isDirectory) {
-                    if isDirectory.boolValue {
-                        // 递归复制目录
-                        try? fileManager.copyItem(atPath: sourceItem, toPath: destItem)
-                    } else {
-                        // 复制文件
-                        if fileManager.fileExists(atPath: destItem) {
-                            try? fileManager.removeItem(atPath: destItem)
+            if isSourceDirectory.boolValue {
+                // 情况1：sourcePath 是目录，遍历复制内容
+                let contents = try fileManager.contentsOfDirectory(atPath: sourcePath)
+                for item in contents {
+                    // 跳过隐藏文件和目录（如 .git, .github 等）
+                    if item.hasPrefix(".") {
+                        continue
+                    }
+
+                    let sourceItem = "\(sourcePath)/\(item)"
+                    let destItem = "\(installDir)/\(item)"
+
+                    var isDirectory: ObjCBool = false
+                    if fileManager.fileExists(atPath: sourceItem, isDirectory: &isDirectory) {
+                        if isDirectory.boolValue {
+                            // 递归复制目录
+                            try? fileManager.copyItem(atPath: sourceItem, toPath: destItem)
+                        } else {
+                            // 复制文件
+                            if fileManager.fileExists(atPath: destItem) {
+                                try? fileManager.removeItem(atPath: destItem)
+                            }
+                            try fileManager.copyItem(atPath: sourceItem, toPath: destItem)
                         }
-                        try fileManager.copyItem(atPath: sourceItem, toPath: destItem)
                     }
                 }
+            } else {
+                // 情况2：sourcePath 是文件（如 .md 文件），直接复制
+                let destFile = "\(installDir)/\(skill.name).md"
+                if fileManager.fileExists(atPath: destFile) {
+                    try? fileManager.removeItem(atPath: destFile)
+                }
+                try fileManager.copyItem(atPath: sourcePath, toPath: destFile)
             }
             showToast("Skill 文件已复制", type: .info)
         } catch {
@@ -1675,6 +1815,7 @@ class AppViewModel: ObservableObject {
         switch agent.id {
         case "claude-code":
             // Claude Code: 管理 ~/.claude/skills/ 目录下的 skill 文件夹
+            // 已验证: Claude Code 确实支持从 ~/.claude/skills/ 加载自定义 skills
             applySkillsToClaudeDirectory(agent: agent, skills: enabledSkills)
         case "cursor":
             // Cursor: 管理 ~/.cursor/skills/ 目录下的 skill 文件夹
@@ -1722,6 +1863,9 @@ class AppViewModel: ObservableObject {
     }
 
     // MARK: - Claude Code: Skills 目录管理
+    // Claude Code 从 ~/.claude/skills/ 加载自定义 skills
+    // 每个 skill 是一个包含 SKILL.md 文件的目录
+    // 已验证: Claude Code 确实支持自定义 skills
     private func applySkillsToClaudeDirectory(agent: Agent, skills: [InstalledSkill]) {
         let homeDir = NSHomeDirectory()
         let skillsDir = "\(homeDir)/.claude/skills"
@@ -1871,6 +2015,67 @@ class AppViewModel: ObservableObject {
             print("\(agent.name) MCP config updated with \(skills.count) servers")
         } catch {
             print("Failed to write MCP config: \(error)")
+        }
+    }
+
+    // MARK: - Claude Code: MCP 配置管理
+    private func writeClaudeMCPConfig(agent: Agent, skills: [InstalledSkill], configPath: String) {
+        let homeDir = NSHomeDirectory()
+        let mcpConfigPath = configPath.replacingOccurrences(of: "~", with: homeDir)
+        let fileManager = FileManager.default
+
+        print("[DEBUG] Applying \(skills.count) skills to Claude Code MCP config: \(mcpConfigPath)")
+
+        // 读取现有配置
+        var config: [String: Any] = [:]
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: mcpConfigPath)),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            config = existing
+        }
+
+        // 构建 MCP servers 配置
+        var mcpServers: [String: Any] = config["mcpServers"] as? [String: Any] ?? [:]
+        for skill in skills {
+            let skillHomePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+            // 尝试找到 entry point（可能是 index.js、main.js 或 skill 目录本身）
+            let possibleEntryPoints = ["index.js", "main.js", "skill.js", "run.js"]
+            var entryPoint: String?
+            for ep in possibleEntryPoints {
+                if fileManager.fileExists(atPath: "\(skillHomePath)/\(ep)") {
+                    entryPoint = ep
+                    break
+                }
+            }
+
+            if let entryPoint = entryPoint {
+                mcpServers[skill.name] = [
+                    "command": "node",
+                    "args": ["\(skillHomePath)/\(entryPoint)"],
+                    "env": [:]
+                ]
+            } else {
+                // 如果没有找到 entry point，使用目录本身
+                mcpServers[skill.name] = [
+                    "command": "node",
+                    "args": [skillHomePath],
+                    "env": [:]
+                ]
+            }
+        }
+
+        config["mcpServers"] = mcpServers
+
+        // 确保目录存在
+        let configDir = (mcpConfigPath as NSString).deletingLastPathComponent
+        try? fileManager.createDirectory(atPath: configDir, withIntermediateDirectories: true)
+
+        // 写入配置
+        do {
+            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: mcpConfigPath))
+            print("Claude Code MCP config updated with \(skills.count) servers")
+        } catch {
+            print("Failed to write Claude Code MCP config: \(error)")
         }
     }
 
