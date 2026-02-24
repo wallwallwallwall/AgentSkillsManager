@@ -136,31 +136,55 @@ open AgentSkillsManager.xcodeproj
 
 访问 [Releases](https://github.com/wallwallwallwall/AgentSkillsManager/releases) 页面下载最新版本。
 
+#### 安装步骤
+
+1. 下载最新版本的 `AgentSkillsManager-v1.0.1.zip`
+2. 解压后将 `AgentSkillsManager.app` 拖到 **应用程序** 文件夹
+3. 首次运行时，前往 **系统设置 → 隐私与安全性** 中允许打开
+4. 应用会自动扫描已安装的 AI Agent
+
 ## 使用指南
+
+### 快速开始
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. 添加 Skills 仓库  →  2. 安装 Skills  →  3. 配置 Agent   │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### 添加 Skills 仓库
 
-1. 点击侧边栏的 "Skill 仓库"
-2. 点击 "添加" 按钮
+1. 点击侧边栏的 "**Skill 仓库**"
+2. 点击 "**添加**" 按钮
 3. 输入仓库信息：
-   - 名称：仓库显示名称
-   - URL：GitHub 仓库地址
-   - 分支：默认分支（通常为 main）
-   - Skill 路径：Skills 所在子目录（可选）
+   - **名称**：仓库显示名称（如 `anthropics-skills`）
+   - **URL**：GitHub 仓库地址（支持自动修正）
+     - ✅ 正确格式：`https://github.com/anthropics/skills`
+     - ✅ 自动修正：`https://github.com/anthropics/skills/tree/main` → 自动去除 `/tree/...`
+   - **分支**：默认分支（通常为 `main`）
+   - **Skill 路径**：Skills 所在子目录（可选，如 `skills/`）
+
+**推荐仓库**：
+- `anthropics/skills` - Anthropic 官方 Skills
+- `openai/skills` - OpenAI 官方 Skills
+- `ComposioHQ/awesome-claude-skills` - Claude Skills 精选集
 
 ### 安装 Skills
 
-1. 切换到 "Skill 管理" 标签
-2. 浏览或搜索感兴趣的 Skills
-3. 点击 Skill 查看详情
-4. 点击 "安装" 按钮
+1. 切换到 "**Skill 管理**" 标签
+2. 浏览或搜索感兴趣的 Skills（支持多仓库同名 Skill）
+3. 点击 Skill 查看详情（描述、作者、仓库来源）
+4. 点击 "**安装**" 按钮
+
+> **提示**：不同仓库的同名 Skill 会分别安装，不会冲突
 
 ### 配置 Agent
 
-1. 切换到 "Local Agents" 标签
-2. 查看已检测到的 Agent 列表
+1. 切换到 "**Local Agents**" 标签
+2. 查看已自动检测到的 Agent 列表
 3. 点击 Agent 展开详情，启用/禁用需要的 Skills
-4. Skills 会自动同步到 Agent 的配置目录或配置文件
+4. Skills 会自动同步到 Agent 的配置目录
 
 #### 修改配置路径
 
@@ -170,9 +194,18 @@ open AgentSkillsManager.xcodeproj
 
 #### 编辑配置文件
 
-1. 点击 Agent 右侧的 "配置" 按钮
+1. 点击 Agent 右侧的 "**配置**" 按钮
 2. 在弹出的编辑器中修改配置文件内容
 3. 点击保存即可生效
+
+### 本地导入 Skills
+
+支持导入本地开发的 Skills：
+
+1. 点击 "**本地导入**" 按钮
+2. 选择 ZIP 文件或本地目录
+3. 应用会自动检测 `skill.json` 配置文件
+4. 导入后会出现在 "Skill 管理" 列表中
 
 ## 项目结构
 
