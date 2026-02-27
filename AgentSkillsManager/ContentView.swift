@@ -89,7 +89,7 @@ struct SidebarView: View {
                         tab: tab,
                         isSelected: viewModel.selectedTab == tab,
                         action: {
-                            withAnimation(.easeInOut(duration: 0.1)) {
+                            withAnimation(.easeOut(duration: 0.08)) {
                                 viewModel.selectedTab = tab
                             }
                         }
@@ -217,25 +217,21 @@ struct MainContentView: View {
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
-        // 使用 ZStack 缓存所有视图，避免切换时重新创建
-        ZStack {
+        // 使用条件渲染替代 ZStack，切换更流畅
+        switch viewModel.selectedTab {
+        case .repositories:
             RepositoriesView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .repositories ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .repositories)
-
+                .transition(.opacity)
+        case .marketplace:
             MarketplaceView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .marketplace ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .marketplace)
-
+                .transition(.opacity)
+        case .agents:
             AgentsView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .agents ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .agents)
-
+                .transition(.opacity)
+        case .installed:
             InstalledSkillsView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .installed ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .installed)
+                .transition(.opacity)
         }
-        .animation(.easeInOut(duration: 0.15), value: viewModel.selectedTab)
     }
 }
 
