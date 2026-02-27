@@ -299,6 +299,16 @@ struct Agent: Identifiable, Codable, Hashable {
             configFormat: .json,
             detected: false,
             enabledSkillIds: []
+        ),
+        Agent(
+            id: "openclaw",
+            name: "OpenClaw",
+            icon: "shippingbox.fill",
+            colorHex: "FF6B35",
+            configPath: "~/.openclaw/openclaw.json",
+            configFormat: .json,
+            detected: false,
+            enabledSkillIds: []
         )
     ]
 }
@@ -1882,6 +1892,9 @@ class AppViewModel: ObservableObject {
         case "trae":
             // Trae: 使用 ~/.Trae/mcp.json 配置文件
             applySkillsToMCPConfig(agent: agent, skills: enabledSkills, configPath: "~/.Trae/mcp.json")
+        case "openclaw":
+            // OpenClaw: 使用 ~/.openclaw/skills/ 目录
+            applySkillsToOpenClawDirectory(agent: agent, skills: enabledSkills)
         default:
             // 默认使用目录方式
             let defaultDir = "~/.\(agent.id)/skills"
@@ -2007,6 +2020,105 @@ class AppViewModel: ObservableObject {
         }
 
         print("\(agent.name) skills updated: \(skills.count) enabled in \(skillsDir)")
+    }
+
+    // MARK: - OpenClaw Skills 目录管理
+    // OpenClaw 从 ~/.openclaw/skills/ 加载自定义 skills
+    // 配置方式: 目录扫描 + openclaw.json 配置
+    private func applySkillsToOpenClawDirectory(agent: Agent, skills: [InstalledSkill]) {
+        let homeDir = NSHomeDirectory()
+        let skillsDir = "\(homeDir)/.openclaw/skills"
+        let configPath = "\(homeDir)/.openclaw/openclaw.json"
+        let fileManager = FileManager.default
+
+        print("[OpenClaw] Applying skills to: \(skillsDir)")
+
+        // 1. 确保 skills 目录存在
+        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+
+        // 2. 获取当前目录下所有的 skill 文件夹
+        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
+
+        // 3. 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
+        let enabledSkillLinkNames = Set(skills.map { skill -> String in
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            return "\(repoName)-\(skill.name)"
+        })
+
+        // 4. 添加新启用的 skills（创建符号链接）
+        for skill in skills {
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillLinkName = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
+            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
+
+            // 如果已存在，先删除
+            if fileManager.fileExists(atPath: skillLinkPath) {
+                try? fileManager.removeItem(atPath: skillLinkPath)
+            }
+
+            // 创建符号链接
+            do {
+                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
+                print("[OpenClaw] Linked skill: \(skillLinkName)")
+            } catch {
+                print("[OpenClaw] Failed to link skill \(skillLinkName): \(error)")
+            }
+        }
+
+        // 5. 移除禁用的 skills（删除链接）
+        for existingSkill in existingSkills {
+            if !enabledSkillLinkNames.contains(existingSkill) {
+                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
+                try? fileManager.removeItem(atPath: skillLinkPath)
+                print("[OpenClaw] Removed skill link: \(existingSkill)")
+            }
+        }
+
+        // 6. 更新 openclaw.json 配置文件
+        updateOpenClawConfig(skills: skills, configPath: configPath, skillsDir: skillsDir)
+
+        print("[OpenClaw] Skills updated: \(skills.count) enabled")
+    }
+
+    // 更新 OpenClaw 配置文件
+    private func updateOpenClawConfig(skills: [InstalledSkill], configPath: String, skillsDir: String) {
+        let fileManager = FileManager.default
+
+        // 读取现有配置或创建新配置
+        var config: [String: Any] = [:]
+        if let data = fileManager.contents(atPath: configPath),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            config = json
+        }
+
+        // 构建技能条目
+        var entries: [String: [String: Any]] = [:]
+        for skill in skills {
+            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
+            let skillKey = "\(repoName)-\(skill.name)"
+            entries[skillKey] = [
+                "enabled": true
+            ]
+        }
+
+        // 更新配置
+        var skillsConfig = config["skills"] as? [String: Any] ?? [:]
+        skillsConfig["entries"] = entries
+        skillsConfig["load"] = [
+            "watch": true,
+            "watchDebounceMs": 250
+        ]
+        config["skills"] = skillsConfig
+
+        // 写入配置
+        do {
+            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: configPath))
+            print("[OpenClaw] Config updated: \(configPath)")
+        } catch {
+            print("[OpenClaw] Failed to write config: \(error)")
+        }
     }
 
     // MARK: - MCP 配置管理（适用于 Copilot CLI、Windsurf、Trae 等）
