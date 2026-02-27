@@ -2011,7 +2011,6 @@ struct AddRepositoryView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             }
-            .formStyle(.grouped)
 
             Spacer()
 
@@ -2074,7 +2073,6 @@ struct EditRepositoryView: View {
                     TextField(L.skillPath, text: $skillPath)
                 }
             }
-            .formStyle(.grouped)
 
             Spacer()
 
@@ -2200,7 +2198,6 @@ struct EditAgentConfigView: View {
 
                 TextEditor(text: $configContent)
                     .font(.system(.body, design: .monospaced))
-                    .scrollContentBackground(.hidden)
                     .background(Color(.textBackgroundColor))
                     .cornerRadius(8)
                     .overlay(
