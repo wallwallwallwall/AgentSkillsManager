@@ -35,6 +35,7 @@ AgentSkillsManager 目前支持以下 AI Agent：
 | Windsurf | 🏄 | ✅ 支持 | MCP 配置 | `~/.codeium/windsurf/mcp_config.json` |
 | Roo Code | 🦘 | ✅ 支持 | 目录扫描 | `~/.roo/rules/` |
 | Cline | 💻 | ✅ 支持 | 目录扫描 | `~/.cline/rules/` |
+| OpenClaw | 🐾 | ✅ 支持 | JSON 配置 | `~/.openclaw/openclaw.json` |
 
 ### Agent 配置方式说明
 
