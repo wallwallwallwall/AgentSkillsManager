@@ -3,23 +3,23 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var viewModel = AppViewModel()
+    @State private var columnVisibility = NavigationSplitViewVisibility.automatic
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(viewModel: viewModel)
-                .navigationSplitViewColumnWidth(min: 240, ideal: 260)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SidebarView(selectedTab: $viewModel.selectedTab, viewModel: viewModel)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240)
         } detail: {
-            MainContentView(viewModel: viewModel)
+            MainContentView(selectedTab: viewModel.selectedTab, viewModel: viewModel)
+                .id(viewModel.selectedTab)
         }
         .onAppear {
             viewModel.performInitialScan()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // 应用回到前台时静默检查已安装 skill 文件是否存在
             viewModel.cleanupMissingSkills(silent: true)
         }
         .onChange(of: viewModel.selectedTab) { newTab in
-            // 切换到"已安装"标签页时检查文件是否存在
             if newTab == .installed {
                 viewModel.cleanupMissingSkills()
             }
@@ -63,6 +63,7 @@ struct ToastOverlay: View {
 
 // MARK: - Sidebar
 struct SidebarView: View {
+    @Binding var selectedTab: AppViewModel.Tab
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
@@ -87,11 +88,10 @@ struct SidebarView: View {
                 ForEach(AppViewModel.Tab.allCases, id: \.self) { tab in
                     SidebarTabButton(
                         tab: tab,
-                        isSelected: viewModel.selectedTab == tab,
+                        isSelected: selectedTab == tab,
                         action: {
-                            withAnimation(.easeOut(duration: 0.08)) {
-                                viewModel.selectedTab = tab
-                            }
+                            // 禁用动画，直接切换
+                            selectedTab = tab
                         }
                     )
                 }
@@ -214,29 +214,23 @@ struct SidebarTabButton: View {
 
 // MARK: - Main Content
 struct MainContentView: View {
+    let selectedTab: AppViewModel.Tab
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
-        // 使用 ZStack 缓存视图，避免重复创建
-        ZStack {
-            RepositoriesView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .repositories ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .repositories)
-
-            MarketplaceView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .marketplace ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .marketplace)
-
-            AgentsView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .agents ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .agents)
-
-            InstalledSkillsView(viewModel: viewModel)
-                .opacity(viewModel.selectedTab == .installed ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == .installed)
+        // 使用 Group + switch，只渲染当前 Tab 的视图
+        Group {
+            switch selectedTab {
+            case .repositories:
+                RepositoriesView(viewModel: viewModel)
+            case .marketplace:
+                MarketplaceView(viewModel: viewModel)
+            case .agents:
+                AgentsView(viewModel: viewModel)
+            case .installed:
+                InstalledSkillsView(viewModel: viewModel)
+            }
         }
-        // 禁用动画使切换更即时
-        .animation(nil, value: viewModel.selectedTab)
     }
 }
 
