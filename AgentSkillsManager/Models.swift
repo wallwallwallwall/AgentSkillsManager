@@ -2092,13 +2092,15 @@ class AppViewModel: ObservableObject {
             config = json
         }
 
-        // 构建技能条目
+        // 构建技能条目，包含 path 指向 skills 目录中的符号链接
         var entries: [String: [String: Any]] = [:]
         for skill in skills {
             let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
             let skillKey = "\(repoName)-\(skill.name)"
+            let skillLinkPath = "\(skillsDir)/\(skillKey)"
             entries[skillKey] = [
-                "enabled": true
+                "enabled": true,
+                "path": skillLinkPath
             ]
         }
 
