@@ -2022,68 +2022,15 @@ class AppViewModel: ObservableObject {
         print("\(agent.name) skills updated: \(skills.count) enabled in \(skillsDir)")
     }
 
-    // MARK: - OpenClaw Skills 目录管理
-    // OpenClaw 从 ~/.openclaw/skills/ 加载自定义 skills
-    // 配置方式: 目录扫描 + openclaw.json 配置
+    // MARK: - OpenClaw Skills 配置管理
+    // OpenClaw 通过 extraDirs 配置加载自定义 skills
+    // 参考: https://docs.openclaw.ai/tools/skills-config
     private func applySkillsToOpenClawDirectory(agent: Agent, skills: [InstalledSkill]) {
         let homeDir = NSHomeDirectory()
-        let skillsDir = "\(homeDir)/.openclaw/skills"
         let configPath = "\(homeDir)/.openclaw/openclaw.json"
         let fileManager = FileManager.default
 
-        print("[OpenClaw] Applying skills to: \(skillsDir)")
-
-        // 1. 确保 skills 目录存在
-        try? fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
-
-        // 2. 获取当前目录下所有的 skill 文件夹
-        let existingSkills = (try? fileManager.contentsOfDirectory(atPath: skillsDir)) ?? []
-
-        // 3. 应该存在的 skills（启用的），使用 仓库名-技能名 作为唯一标识
-        let enabledSkillLinkNames = Set(skills.map { skill -> String in
-            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
-            return "\(repoName)-\(skill.name)"
-        })
-
-        // 4. 添加新启用的 skills（创建符号链接）
-        for skill in skills {
-            let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
-            let skillLinkName = "\(repoName)-\(skill.name)"
-            let skillLinkPath = "\(skillsDir)/\(skillLinkName)"
-            let skillSourcePath = skill.localPath.replacingOccurrences(of: "~", with: homeDir)
-
-            // 如果已存在，先删除
-            if fileManager.fileExists(atPath: skillLinkPath) {
-                try? fileManager.removeItem(atPath: skillLinkPath)
-            }
-
-            // 创建符号链接
-            do {
-                try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("[OpenClaw] Linked skill: \(skillLinkName)")
-            } catch {
-                print("[OpenClaw] Failed to link skill \(skillLinkName): \(error)")
-            }
-        }
-
-        // 5. 移除禁用的 skills（删除链接）
-        for existingSkill in existingSkills {
-            if !enabledSkillLinkNames.contains(existingSkill) {
-                let skillLinkPath = "\(skillsDir)/\(existingSkill)"
-                try? fileManager.removeItem(atPath: skillLinkPath)
-                print("[OpenClaw] Removed skill link: \(existingSkill)")
-            }
-        }
-
-        // 6. 更新 openclaw.json 配置文件
-        updateOpenClawConfig(skills: skills, configPath: configPath, skillsDir: skillsDir)
-
-        print("[OpenClaw] Skills updated: \(skills.count) enabled")
-    }
-
-    // 更新 OpenClaw 配置文件
-    private func updateOpenClawConfig(skills: [InstalledSkill], configPath: String, skillsDir: String) {
-        let fileManager = FileManager.default
+        print("[OpenClaw] Configuring skills in: \(configPath)")
 
         // 读取现有配置或创建新配置
         var config: [String: Any] = [:]
@@ -2092,8 +2039,26 @@ class AppViewModel: ObservableObject {
             config = json
         }
 
-        // 构建技能条目（OpenClaw entries 只支持 enabled 字段，不支持 path）
-        // Skills 通过符号链接放在 ~/.openclaw/skills/ 目录下自动加载
+        // 收集所有启用的 skill 目录路径
+        let skillDirs = skills.map { skill -> String in
+            skill.localPath
+        }
+
+        // 更新 extraDirs（去重并保留原有配置）
+        var skillsConfig = config["skills"] as? [String: Any] ?? [:]
+        var loadConfig = skillsConfig["load"] as? [String: Any] ?? [:]
+
+        // 获取现有的 extraDirs（排除我们之前添加的 skill 目录）
+        let existingExtraDirs = loadConfig["extraDirs"] as? [String] ?? []
+        let systemExtraDirs = existingExtraDirs.filter { !$0.contains("/.agent-skills/") }
+
+        // 合并目录：系统目录 + 启用的 skill 目录
+        loadConfig["extraDirs"] = Array(Set(systemExtraDirs + skillDirs))
+        loadConfig["watch"] = true
+        loadConfig["watchDebounceMs"] = 250
+        skillsConfig["load"] = loadConfig
+
+        // 构建 entries（只控制启用/禁用）
         var entries: [String: [String: Any]] = [:]
         for skill in skills {
             let repoName = skill.localPath.components(separatedBy: "/").dropLast().last ?? "unknown"
@@ -2102,21 +2067,16 @@ class AppViewModel: ObservableObject {
                 "enabled": true
             ]
         }
-
-        // 更新配置
-        var skillsConfig = config["skills"] as? [String: Any] ?? [:]
         skillsConfig["entries"] = entries
-        skillsConfig["load"] = [
-            "watch": true,
-            "watchDebounceMs": 250
-        ]
+
         config["skills"] = skillsConfig
 
         // 写入配置
         do {
             let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: URL(fileURLWithPath: configPath))
-            print("[OpenClaw] Config updated: \(configPath)")
+            print("[OpenClaw] Config updated with \(skillDirs.count) skill directories")
+            print("[OpenClaw] extraDirs: \(loadConfig["extraDirs"] ?? [])")
         } catch {
             print("[OpenClaw] Failed to write config: \(error)")
         }
