@@ -943,11 +943,6 @@ class AppViewModel: ObservableObject {
             }
         }
 
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        task.standardOutput = outputPipe
-        task.standardError = errorPipe
-
         return await withCheckedContinuation { continuation in
             Task {
                 do {
@@ -959,17 +954,15 @@ class AppViewModel: ObservableObject {
                         task.arguments = ["-c", "git clone --depth 1 '\(repository.url)' '\(repoDir)'"]
 
                         print("[GIT] Cloning \(repository.url) to \(repoDir)")
-                        let terminationStatus = await self.runProcessAsync(task)
-                        print("[GIT] Clone status: \(terminationStatus)")
+                        let result = await self.runProcessAsync(task)
+                        print("[GIT] Clone status: \(result.terminationStatus)")
 
-                        if terminationStatus == 0 {
+                        if result.terminationStatus == 0 {
                             cloneSuccess = true
                         } else {
-                            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-                            let errorMsg = String(data: errorData, encoding: .utf8) ?? ""
-                            let outputMsg = String(data: outputData, encoding: .utf8) ?? ""
-                            finalErrorMessage = "Clone failed: \(errorMsg) \(outputMsg)"
+                            let errorMsg = result.stderr
+                            let outputMsg = result.stdout
+                            finalErrorMessage = "Clone failed: \(errorMsg.isEmpty ? outputMsg : errorMsg)"
                             print("[GIT ERROR] \(finalErrorMessage)")
 
                             // 清理失败的部分克隆
@@ -980,16 +973,14 @@ class AppViewModel: ObservableObject {
                         task.arguments = ["-c", "cd '\(repoDir)' && git pull"]
 
                         print("[GIT] Pulling \(repository.name)")
-                        let terminationStatus = await self.runProcessAsync(task)
-                        print("[GIT] Pull status: \(terminationStatus)")
+                        let result = await self.runProcessAsync(task)
+                        print("[GIT] Pull status: \(result.terminationStatus)")
 
-                        cloneSuccess = terminationStatus == 0
+                        cloneSuccess = result.terminationStatus == 0
                         if !cloneSuccess {
-                            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-                            let errorMsg = String(data: errorData, encoding: .utf8) ?? ""
-                            let outputMsg = String(data: outputData, encoding: .utf8) ?? ""
-                            finalErrorMessage = "Pull failed: \(errorMsg) \(outputMsg)"
+                            let errorMsg = result.stderr
+                            let outputMsg = result.stdout
+                            finalErrorMessage = "Pull failed: \(errorMsg.isEmpty ? outputMsg : errorMsg)"
                             print("[GIT ERROR] \(finalErrorMessage)")
                         }
                     }
@@ -1032,34 +1023,76 @@ class AppViewModel: ObservableObject {
         }
     }
 
+    /// 进程执行结果
+    struct ProcessResult {
+        let terminationStatus: Int32
+        let stdout: String
+        let stderr: String
+    }
+
     /// 异步执行 Process，不阻塞线程，带超时（默认60秒）
-    private func runProcessAsync(_ process: Process, timeout: TimeInterval = 60) async -> Int32 {
-        await withCheckedContinuation { continuation in
-            var isCompleted = false
+    /// 返回终止状态和输出内容
+    private func runProcessAsync(_ process: Process, timeout: TimeInterval = 60) async -> ProcessResult {
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        return await withCheckedContinuation { continuation in
+            let stdoutData = NSMutableData()
+            let stderrData = NSMutableData()
+
+            // 设置输出读取句柄
+            outputPipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if !data.isEmpty {
+                    stdoutData.append(data)
+                }
+            }
+
+            errorPipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if !data.isEmpty {
+                    stderrData.append(data)
+                }
+            }
 
             // 设置超时定时器
             let timer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { _ in
-                guard !isCompleted else { return }
-                isCompleted = true
                 process.terminate()
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+                let stdout = String(data: stdoutData as Data, encoding: .utf8) ?? ""
+                let stderr = String(data: stderrData as Data, encoding: .utf8) ?? ""
                 print("Process timed out after \(timeout) seconds")
-                continuation.resume(returning: -2) // -2 表示超时
+                continuation.resume(returning: ProcessResult(terminationStatus: -2, stdout: stdout, stderr: stderr))
             }
 
             process.terminationHandler = { task in
-                guard !isCompleted else { return }
-                isCompleted = true
                 timer.invalidate()
-                continuation.resume(returning: task.terminationStatus)
+
+                // 关闭管道并读取剩余数据
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+
+                let finalStdout = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                let finalStderr = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                stdoutData.append(finalStdout)
+                stderrData.append(finalStderr)
+
+                let stdout = String(data: stdoutData as Data, encoding: .utf8) ?? ""
+                let stderr = String(data: stderrData as Data, encoding: .utf8) ?? ""
+
+                continuation.resume(returning: ProcessResult(terminationStatus: task.terminationStatus, stdout: stdout, stderr: stderr))
             }
 
             do {
                 try process.run()
             } catch {
-                guard !isCompleted else { return }
-                isCompleted = true
                 timer.invalidate()
-                continuation.resume(returning: -1)
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+                continuation.resume(returning: ProcessResult(terminationStatus: -1, stdout: "", stderr: error.localizedDescription))
             }
         }
     }
