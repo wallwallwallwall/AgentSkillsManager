@@ -635,7 +635,8 @@ class AppViewModel: ObservableObject {
 
     // MARK: - Cleanup Missing Skills
     /// 检查已安装 skill 的文件是否存在，如果不存在则从列表和 Agent 配置中清理
-    func cleanupMissingSkills() {
+    /// - Parameter silent: 是否静默处理（不显示提示），默认 false
+    func cleanupMissingSkills(silent: Bool = false) {
         let fileManager = FileManager.default
         let homeDir = NSHomeDirectory()
         var removedSkills: [String] = []
@@ -672,9 +673,8 @@ class AppViewModel: ObservableObject {
 
         saveData()
 
-        // 显示提示
-        if !removedSkills.isEmpty {
-            let skillNames = removedSkills.joined(separator: ", ")
+        // 非静默模式下显示提示
+        if !silent && !removedSkills.isEmpty {
             showToast("检测到 \(removedSkills.count) 个 Skill 文件缺失，已自动清理配置", type: .warning)
         }
     }

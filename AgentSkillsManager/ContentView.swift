@@ -15,8 +15,8 @@ struct ContentView: View {
             viewModel.performInitialScan()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // 应用回到前台时检查已安装 skill 文件是否存在
-            viewModel.cleanupMissingSkills()
+            // 应用回到前台时静默检查已安装 skill 文件是否存在
+            viewModel.cleanupMissingSkills(silent: true)
         }
         .onChange(of: viewModel.selectedTab) { newTab in
             // 切换到"已安装"标签页时检查文件是否存在
@@ -217,21 +217,26 @@ struct MainContentView: View {
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
-        // 使用条件渲染替代 ZStack，切换更流畅
-        switch viewModel.selectedTab {
-        case .repositories:
+        // 使用 ZStack 缓存视图，避免重复创建
+        ZStack {
             RepositoriesView(viewModel: viewModel)
-                .transition(.opacity)
-        case .marketplace:
+                .opacity(viewModel.selectedTab == .repositories ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedTab == .repositories)
+
             MarketplaceView(viewModel: viewModel)
-                .transition(.opacity)
-        case .agents:
+                .opacity(viewModel.selectedTab == .marketplace ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedTab == .marketplace)
+
             AgentsView(viewModel: viewModel)
-                .transition(.opacity)
-        case .installed:
+                .opacity(viewModel.selectedTab == .agents ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedTab == .agents)
+
             InstalledSkillsView(viewModel: viewModel)
-                .transition(.opacity)
+                .opacity(viewModel.selectedTab == .installed ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedTab == .installed)
         }
+        // 禁用动画使切换更即时
+        .animation(nil, value: viewModel.selectedTab)
     }
 }
 
