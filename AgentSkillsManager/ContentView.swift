@@ -11,7 +11,6 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240)
         } detail: {
             MainContentView(selectedTab: viewModel.selectedTab, viewModel: viewModel)
-                .id(viewModel.selectedTab)
         }
         .onAppear {
             viewModel.performInitialScan()
@@ -218,22 +217,23 @@ struct MainContentView: View {
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
-        // 使用 @ViewBuilder 避免 AnyView，配合 .drawingGroup() GPU 渲染
-        content
-            .drawingGroup(opaque: false)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch selectedTab {
-        case .repositories:
+        // 使用 ZStack + opacity 缓存所有视图，避免切换时重建
+        ZStack {
             RepositoriesView(viewModel: viewModel)
-        case .marketplace:
+                .opacity(selectedTab == .repositories ? 1 : 0)
+                .allowsHitTesting(selectedTab == .repositories)
+
             MarketplaceView(viewModel: viewModel)
-        case .agents:
+                .opacity(selectedTab == .marketplace ? 1 : 0)
+                .allowsHitTesting(selectedTab == .marketplace)
+
             AgentsView(viewModel: viewModel)
-        case .installed:
+                .opacity(selectedTab == .agents ? 1 : 0)
+                .allowsHitTesting(selectedTab == .agents)
+
             InstalledSkillsView(viewModel: viewModel)
+                .opacity(selectedTab == .installed ? 1 : 0)
+                .allowsHitTesting(selectedTab == .installed)
         }
     }
 }
