@@ -218,30 +218,23 @@ struct MainContentView: View {
     @ObservedObject var viewModel: AppViewModel
 
     var body: some View {
-        // 使用 ZStack 缓存所有视图，避免重新创建导致的卡顿
-        ZStack {
-            // Repositories - 始终存在，根据选中状态控制显示
+        // 使用 @ViewBuilder 避免 AnyView，配合 .drawingGroup() GPU 渲染
+        content
+            .drawingGroup(opaque: false)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch selectedTab {
+        case .repositories:
             RepositoriesView(viewModel: viewModel)
-                .opacity(selectedTab == .repositories ? 1 : 0)
-                .allowsHitTesting(selectedTab == .repositories)
-
-            // Marketplace
+        case .marketplace:
             MarketplaceView(viewModel: viewModel)
-                .opacity(selectedTab == .marketplace ? 1 : 0)
-                .allowsHitTesting(selectedTab == .marketplace)
-
-            // Agents
+        case .agents:
             AgentsView(viewModel: viewModel)
-                .opacity(selectedTab == .agents ? 1 : 0)
-                .allowsHitTesting(selectedTab == .agents)
-
-            // Installed Skills
+        case .installed:
             InstalledSkillsView(viewModel: viewModel)
-                .opacity(selectedTab == .installed ? 1 : 0)
-                .allowsHitTesting(selectedTab == .installed)
         }
-        // 禁用动画使切换更即时，避免感知卡顿
-        .animation(nil, value: selectedTab)
     }
 }
 
