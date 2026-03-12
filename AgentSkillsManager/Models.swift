@@ -712,6 +712,8 @@ struct L {
     static var saveConfigFailed: String { language == .chinese ? "保存配置失败" : "Failed to save config" }
     static var browse: String { language == .chinese ? "浏览" : "Browse" }
     static var addSkill: String { language == .chinese ? "添加 Skill" : "Add Skill" }
+    static var resetRepositories: String { language == .chinese ? "恢复默认仓库" : "Reset Default Repositories" }
+    static var resetToDefaultsSuccess: String { language == .chinese ? "已恢复为默认仓库" : "Reset to default repositories successfully" }
 }
 
 // MARK: - View Model
@@ -1093,6 +1095,35 @@ class AppViewModel: ObservableObject {
     func deleteRepository(_ repository: SkillRepository) {
         repositories.removeAll { $0.id == repository.id }
         saveData()
+    }
+
+    func resetRepositoriesToDefaults() {
+        // 保留已同步仓库的本地路径，用于后续清理
+        let oldLocalPaths = repositories.map { $0.localPath }.filter { !$0.isEmpty }
+
+        // 重置为默认仓库（使用新的 UUID，确保干净重置）
+        repositories = SkillRepository.default.map { defaultRepo in
+            SkillRepository(
+                id: UUID(),
+                name: defaultRepo.name,
+                url: defaultRepo.url,
+                branch: defaultRepo.branch,
+                skillPath: defaultRepo.skillPath,
+                localPath: "",
+                lastSyncDate: nil,
+                skills: []
+            )
+        }
+        saveData()
+
+        // 清理旧的本地仓库目录
+        for path in oldLocalPaths {
+            let expandedPath = path.replacingOccurrences(of: "~", with: NSHomeDirectory())
+            try? FileManager.default.removeItem(atPath: expandedPath)
+        }
+
+        logger.info("已重置为默认仓库列表", category: "Repository")
+        showToast(L.resetToDefaultsSuccess, type: .success)
     }
 
     func updateRepository(_ repository: SkillRepository, name: String? = nil, url: String? = nil, branch: String? = nil, skillPath: String? = nil) {

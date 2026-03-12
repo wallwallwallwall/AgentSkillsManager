@@ -584,6 +584,14 @@ struct RepositoriesView: View {
                     Label(L.add, systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button(action: {
+                    viewModel.resetRepositoriesToDefaults()
+                }) {
+                    Label(L.resetRepositories, systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                .help(L.resetRepositories)
             }
             .padding()
 
