@@ -367,21 +367,24 @@ struct MarketplaceView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding()
             } else {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(viewModel.filteredRemoteSkills, id: \.uniqueId) { skill in
+                List {
+                    ForEach(viewModel.filteredRemoteSkills, id: \.uniqueId) { skill in
+                        Button {
+                            selectedSkill = skill
+                        } label: {
                             RemoteSkillRow(
                                 viewModel: viewModel,
                                 skill: skill,
                                 isSelected: selectedSkill?.uniqueId == skill.uniqueId
                             )
-                            .onTapGesture {
-                                selectedSkill = skill
-                            }
                         }
+                        .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
-                    .padding()
                 }
+                .listStyle(.plain)
             }
         }
         .sheet(item: $selectedSkill) { skill in
@@ -455,6 +458,7 @@ struct RemoteSkillRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(isSelected ? Color.orange.opacity(0.08) : Color(.windowBackgroundColor))
         .cornerRadius(8)
         .overlay(
@@ -1370,7 +1374,7 @@ struct RemoteSkillDetailView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Header
@@ -1536,7 +1540,7 @@ struct InstalledSkillDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Header
@@ -1713,7 +1717,7 @@ struct ZIPImportView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Spacer()
 
@@ -1854,7 +1858,7 @@ struct LocalImportView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Spacer()
 
