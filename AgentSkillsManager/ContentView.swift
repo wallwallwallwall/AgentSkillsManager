@@ -862,10 +862,19 @@ struct AgentsView: View {
 
                 Spacer()
 
-                Button(action: {
-                    viewModel.scanLocalAgents()
-                }) {
-                    Label(L.rescan, systemImage: "arrow.clockwise")
+                HStack(spacing: 12) {
+                    Button(action: {
+                        viewModel.resetAgentsToDefaults()
+                    }) {
+                        Label(L.resetToDefaults, systemImage: "gobackward")
+                    }
+                    .help(L.resetToDefaultsHelp)
+
+                    Button(action: {
+                        viewModel.scanLocalAgents()
+                    }) {
+                        Label(L.rescan, systemImage: "arrow.clockwise")
+                    }
                 }
             }
             .padding()
@@ -2169,46 +2178,86 @@ struct EditAgentConfigView: View {
 
             Divider()
 
-            // Config Content Editor
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(L.configFormat + ": \(agent.configFormat.rawValue.uppercased())")
-                        .font(.subheadline)
+            // 根据配置类型显示不同内容
+            if agent.configType == .directory {
+                // 目录型 Agent (如 Claude Code)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "folder.badge.gearshape")
+                            .font(.title2)
+                            .foregroundColor(.green)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L.skillsDirectory)
+                                .font(.headline)
+                            Text(L.directoryTypeDescription)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L.howItWorks)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(L.directoryModePoint1, systemImage: "1.circle.fill")
+                            Label(L.directoryModePoint2, systemImage: "2.circle.fill")
+                            Label(L.directoryModePoint3, systemImage: "3.circle.fill")
+                        }
+                        .font(.caption)
                         .foregroundColor(.secondary)
+                    }
 
                     Spacer()
-
-                    if isSaving {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else if let error = saveError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-
-                    Button(L.save) {
-                        saveConfig()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(isSaving)
                 }
+            } else {
+                // 文件型 Agent (如 Cursor MCP)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(L.configFormat + ": \(agent.configFormat.rawValue.uppercased())")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
 
-                TextEditor(text: $configContent)
-                    .font(.system(.body, design: .monospaced))
-                    .background(Color(.textBackgroundColor))
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(.separatorColor), lineWidth: 1)
-                    )
+                        Spacer()
+
+                        if isSaving {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else if let error = saveError {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+
+                        Button(L.save) {
+                            saveConfig()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(isSaving)
+                    }
+
+                    TextEditor(text: $configContent)
+                        .font(.system(.body, design: .monospaced))
+                        .background(Color(.textBackgroundColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(.separatorColor), lineWidth: 1)
+                        )
+                }
             }
 
             Spacer()
         }
         .padding()
-        .frame(minWidth: 600, minHeight: 500)
+        .frame(minWidth: agent.configType == .directory ? 450 : 600, minHeight: agent.configType == .directory ? 320 : 500)
         .onAppear {
             loadConfig()
         }
@@ -2337,4 +2386,3 @@ struct FlowLayout: Layout {
         }
     }
 }
-

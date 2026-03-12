@@ -1,7 +1,10 @@
 import SwiftUI
+import AppKit
 
 @main
 struct AgentSkillsManagerApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -81,7 +84,6 @@ struct AgentSkillsManagerApp: App {
                 }
                 .keyboardShortcut("f", modifiers: .command)
             }
-
         }
     }
 }
@@ -99,4 +101,11 @@ extension Notification.Name {
     static let switchToAgents = Notification.Name("switchToAgents")
     static let switchToInstalled = Notification.Name("switchToInstalled")
     static let focusSearch = Notification.Name("focusSearch")
+}
+
+// MARK: - App Delegate
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // 应用启动完成
+    }
 }
