@@ -139,7 +139,7 @@ open AgentSkillsManager.xcodeproj
 
 #### 安装步骤
 
-1. 下载最新版本的 `AgentSkillsManager-v1.0.3.zip`
+1. 下载最新版本的 `AgentSkillsManager-v1.0.4.zip`
 2. 解压后将 `AgentSkillsManager.app` 拖到 **应用程序** 文件夹
 3. 首次运行时，前往 **系统设置 → 隐私与安全性** 中允许打开
 4. 应用会自动扫描已安装的 AI Agent
@@ -233,7 +233,12 @@ AgentSkillsManager/
 
 ## 已知问题修复
 
-### v1.0.3 (最新)
+### v1.0.4 (最新)
+- **新增**: 日志系统，记录 Skill 安装和 Agent 配置过程
+- **新增**: 日志查看界面，支持筛选、搜索、导出
+- **修复**: saveData 方法访问权限问题
+
+### v1.0.3
 - **新增**: `configType` 字段区分 Agent 配置类型（目录型/文件型）
 - **新增**: "重置为默认"按钮恢复 Agent 默认配置
 - **优化**: 编辑 Agent 配置界面根据类型显示不同内容
