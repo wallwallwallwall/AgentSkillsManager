@@ -63,3 +63,4 @@ profile
 
 # User-specific files
 *.swiftenv-version
+dist/
