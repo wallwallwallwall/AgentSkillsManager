@@ -1316,59 +1316,104 @@ class AppViewModel: ObservableObject {
         process.standardError = errorPipe
 
         return await withCheckedContinuation { continuation in
-            let stdoutData = NSMutableData()
-            let stderrData = NSMutableData()
+            let stateLock = NSLock()
+            var stdoutData = Data()
+            var stderrData = Data()
+            var didResume = false
+            var didTimeout = false
+
+            func withStateLock<T>(_ body: () -> T) -> T {
+                stateLock.lock()
+                defer { stateLock.unlock() }
+                return body()
+            }
+
+            func markResumed() -> Bool {
+                withStateLock {
+                    guard !didResume else { return false }
+                    didResume = true
+                    return true
+                }
+            }
+
+            func appendOutput(_ data: Data, toStdout: Bool) {
+                guard !data.isEmpty else { return }
+                withStateLock {
+                    if toStdout {
+                        stdoutData.append(data)
+                    } else {
+                        stderrData.append(data)
+                    }
+                }
+            }
+
+            func snapshotResult(status: Int32) -> ProcessResult {
+                let (stdout, stderr) = withStateLock {
+                    (
+                        String(data: stdoutData, encoding: .utf8) ?? "",
+                        String(data: stderrData, encoding: .utf8) ?? ""
+                    )
+                }
+                return ProcessResult(terminationStatus: status, stdout: stdout, stderr: stderr)
+            }
+
+            func cleanupHandlers() {
+                outputPipe.fileHandleForReading.readabilityHandler = nil
+                errorPipe.fileHandleForReading.readabilityHandler = nil
+            }
+
+            let timeoutSource = DispatchSource.makeTimerSource(queue: .global(qos: .userInteractive))
+            timeoutSource.schedule(deadline: .now() + timeout)
+            timeoutSource.setEventHandler {
+                let shouldTerminate = withStateLock {
+                    guard !didResume, !didTimeout, process.isRunning else { return false }
+                    didTimeout = true
+                    return true
+                }
+
+                guard shouldTerminate else { return }
+
+                print("Process timed out after \(timeout) seconds")
+                process.terminate()
+            }
+            timeoutSource.resume()
 
             // 设置输出读取句柄
             outputPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
-                if !data.isEmpty {
-                    stdoutData.append(data)
-                }
+                appendOutput(data, toStdout: true)
             }
 
             errorPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
-                if !data.isEmpty {
-                    stderrData.append(data)
-                }
-            }
-
-            // 设置超时定时器
-            let timer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { _ in
-                process.terminate()
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
-                let stdout = String(data: stdoutData as Data, encoding: .utf8) ?? ""
-                let stderr = String(data: stderrData as Data, encoding: .utf8) ?? ""
-                print("Process timed out after \(timeout) seconds")
-                continuation.resume(returning: ProcessResult(terminationStatus: -2, stdout: stdout, stderr: stderr))
+                appendOutput(data, toStdout: false)
             }
 
             process.terminationHandler = { task in
-                timer.invalidate()
+                timeoutSource.cancel()
+
+                guard markResumed() else { return }
 
                 // 关闭管道并读取剩余数据
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
+                cleanupHandlers()
 
                 let finalStdout = outputPipe.fileHandleForReading.readDataToEndOfFile()
                 let finalStderr = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                stdoutData.append(finalStdout)
-                stderrData.append(finalStderr)
+                appendOutput(finalStdout, toStdout: true)
+                appendOutput(finalStderr, toStdout: false)
 
-                let stdout = String(data: stdoutData as Data, encoding: .utf8) ?? ""
-                let stderr = String(data: stderrData as Data, encoding: .utf8) ?? ""
-
-                continuation.resume(returning: ProcessResult(terminationStatus: task.terminationStatus, stdout: stdout, stderr: stderr))
+                let status = withStateLock { didTimeout ? Int32(-2) : task.terminationStatus }
+                continuation.resume(returning: snapshotResult(status: status))
             }
 
             do {
                 try process.run()
             } catch {
-                timer.invalidate()
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
+                timeoutSource.cancel()
+                cleanupHandlers()
+
+                guard markResumed() else { return }
+
                 continuation.resume(returning: ProcessResult(terminationStatus: -1, stdout: "", stderr: error.localizedDescription))
             }
         }
