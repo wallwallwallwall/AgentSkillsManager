@@ -139,10 +139,12 @@ open AgentSkillsManager.xcodeproj
 
 #### 安装步骤
 
-1. 下载最新版本的 `AgentSkillsManager-v1.0.1.zip`
+1. 下载最新版本的 `AgentSkillsManager-v1.0.3.zip`
 2. 解压后将 `AgentSkillsManager.app` 拖到 **应用程序** 文件夹
 3. 首次运行时，前往 **系统设置 → 隐私与安全性** 中允许打开
 4. 应用会自动扫描已安装的 AI Agent
+
+> **注意**: 详细使用说明请参考 [AGENT_SKILLS_MANAGER_演示文档.md](AGENT_SKILLS_MANAGER_演示文档.md)
 
 ## 使用指南
 
@@ -231,7 +233,17 @@ AgentSkillsManager/
 
 ## 已知问题修复
 
-### v1.0.1 (最新)
+### v1.0.3 (最新)
+- **新增**: `configType` 字段区分 Agent 配置类型（目录型/文件型）
+- **新增**: "重置为默认"按钮恢复 Agent 默认配置
+- **优化**: 编辑 Agent 配置界面根据类型显示不同内容
+- **修正**: Roo Code、Cline 配置类型改为目录扫描
+- **修正**: OpenAI Codex、OpenClaw 配置文件路径
+
+### v1.0.2
+- **修复**: 回退错误的性能优化，修复界面布局问题
+
+### v1.0.1
 - **修复**: Swift 值类型拷贝导致的 toggle 状态不同步问题
 - **修复**: 移除 UI 层多余的 `applyConfigToAgent` 调用，避免配置被覆盖
 - **修复**: 使用 `仓库名/skill名` 层级结构区分不同仓库的同名 skill
