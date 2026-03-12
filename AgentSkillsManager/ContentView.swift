@@ -234,6 +234,10 @@ struct MainContentView: View {
             InstalledSkillsView(viewModel: viewModel)
                 .opacity(selectedTab == .installed ? 1 : 0)
                 .allowsHitTesting(selectedTab == .installed)
+
+            LogsView()
+                .opacity(selectedTab == .logs ? 1 : 0)
+                .allowsHitTesting(selectedTab == .logs)
         }
     }
 }
@@ -2383,6 +2387,137 @@ struct FlowLayout: Layout {
                 self.size.width = max(self.size.width, x)
             }
             self.size.height = y + rowHeight
+        }
+    }
+}
+
+// MARK: - Logs View
+struct LogsView: View {
+    @StateObject private var logManager = LogManager.shared
+    @State private var selectedLevel: LogManager.LogLevel?
+    @State private var searchText = ""
+
+    var filteredLogs: [LogManager.LogEntry] {
+        logManager.logs.filter { log in
+            let levelMatch = selectedLevel == nil || log.level == selectedLevel
+            let searchMatch = searchText.isEmpty ||
+                log.message.localizedCaseInsensitiveContains(searchText) ||
+                log.category.localizedCaseInsensitiveContains(searchText)
+            return levelMatch && searchMatch
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L.logsTab)
+                        .font(.title2.bold())
+                    Text("\(filteredLogs.count) 条日志")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Level Filter
+                Picker("", selection: $selectedLevel) {
+                    Text("全部").tag(nil as LogManager.LogLevel?)
+                    ForEach(LogManager.LogLevel.allCases, id: \.self) { level in
+                        Label(level.rawValue, systemImage: level.icon)
+                            .tag(level as LogManager.LogLevel?)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 300)
+
+                // Search
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("搜索日志...", text: $searchText)
+                        .textFieldStyle(.plain)
+                }
+                .padding(6)
+                .background(Color(.textBackgroundColor))
+                .cornerRadius(6)
+                .frame(width: 200)
+
+                Divider()
+                    .frame(height: 20)
+
+                // Actions
+                Button(action: { logManager.clear() }) {
+                    Label("清空", systemImage: "trash")
+                }
+                .help("清空所有日志")
+
+                Button(action: copyLogs) {
+                    Label("复制", systemImage: "doc.on.doc")
+                }
+                .help("复制所有日志到剪贴板")
+            }
+            .padding()
+            .background(Color(.windowBackgroundColor))
+
+            Divider()
+
+            // Log List
+            List(filteredLogs) { log in
+                LogRowView(log: log)
+                    .id(log.id)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    private func copyLogs() {
+        let text = logManager.export()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+
+struct LogRowView: View {
+    let log: LogManager.LogEntry
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: log.level.icon)
+                    .foregroundColor(log.level.color)
+                    .frame(width: 16)
+
+                Text(log.formattedTime)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 80, alignment: .leading)
+
+                Text("[\(log.category)]")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.blue)
+                    .frame(width: 70, alignment: .leading)
+
+                Text(log.message)
+                    .font(.system(.body, design: .monospaced))
+                    .lineLimit(isExpanded ? nil : 2)
+                    .textSelection(.enabled)
+
+                Spacer()
+            }
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isExpanded.toggle()
+        }
+        .contextMenu {
+            Button("复制") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(log.message, forType: .string)
+            }
         }
     }
 }

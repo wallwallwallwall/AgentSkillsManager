@@ -1,6 +1,107 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Log Manager (日志管理器)
+class LogManager: ObservableObject {
+    static let shared = LogManager()
+
+    struct LogEntry: Identifiable {
+        let id = UUID()
+        let timestamp: Date
+        let level: LogLevel
+        let message: String
+        let category: String
+
+        var formattedTime: String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss.SSS"
+            return formatter.string(from: timestamp)
+        }
+    }
+
+    enum LogLevel: String, CaseIterable {
+        case debug = "DEBUG"
+        case info = "INFO"
+        case warning = "WARN"
+        case error = "ERROR"
+
+        var color: Color {
+            switch self {
+            case .debug: return .gray
+            case .info: return .blue
+            case .warning: return .orange
+            case .error: return .red
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .debug: return "bug.fill"
+            case .info: return "info.circle.fill"
+            case .warning: return "exclamationmark.triangle.fill"
+            case .error: return "xmark.octagon.fill"
+            }
+        }
+    }
+
+    @Published var logs: [LogEntry] = []
+    private let maxLogs = 1000
+    private let queue = DispatchQueue(label: "com.agentskillsmanager.logs", qos: .utility)
+
+    private init() {}
+
+    func log(_ message: String, level: LogLevel = .info, category: String = "General") {
+        let entry = LogEntry(timestamp: Date(), level: level, message: message, category: category)
+
+        queue.async { [weak self] in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                self.logs.append(entry)
+
+                // 限制日志数量
+                if self.logs.count > self.maxLogs {
+                    self.logs.removeFirst(self.logs.count - self.maxLogs)
+                }
+            }
+
+            // 同时输出到控制台
+            print("[\(level.rawValue)][\(category)] \(message)")
+        }
+    }
+
+    func debug(_ message: String, category: String = "General") {
+        log(message, level: .debug, category: category)
+    }
+
+    func info(_ message: String, category: String = "General") {
+        log(message, level: .info, category: category)
+    }
+
+    func warning(_ message: String, category: String = "General") {
+        log(message, level: .warning, category: category)
+    }
+
+    func error(_ message: String, category: String = "General") {
+        log(message, level: .error, category: category)
+    }
+
+    func clear() {
+        DispatchQueue.main.async {
+            self.logs.removeAll()
+        }
+    }
+
+    func export() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+
+        return logs.map { log in
+            "[\(dateFormatter.string(from: log.timestamp))][\(log.level.rawValue)][\(log.category)] \(log.message)"
+        }.joined(separator: "\n")
+    }
+}
+
 // MARK: - Skill Repository (GitHub 仓库)
 struct SkillRepository: Identifiable, Codable, Hashable {
     let id: UUID
@@ -456,6 +557,7 @@ struct L {
     static var marketplaceTab: String { language == .chinese ? "Skill 管理" : "Marketplace" }
     static var agentsTab: String { language == .chinese ? "Local Agents" : "Local Agents" }
     static var installedTab: String { language == .chinese ? "已安装" : "Installed" }
+    static var logsTab: String { language == .chinese ? "日志" : "Logs" }
     static var detectedAgents: String { language == .chinese ? "已检测到 %d 个 Agent" : "Detected %d Agents" }
     static var darkMode: String { language == .chinese ? "深色模式" : "Dark Mode" }
     static var lightMode: String { language == .chinese ? "浅色模式" : "Light Mode" }
@@ -597,6 +699,19 @@ struct L {
     static var repositoriesNeedSync: String { language == .chinese ? "您有仓库待同步\n同步后即可浏览和安装 Skills" : "You have repositories waiting to sync\nSync to browse and install skills" }
     static var syncAllNow: String { language == .chinese ? "立即同步所有仓库" : "Sync All Repositories Now" }
     static var noSkillsInRepository: String { language == .chinese ? "该仓库暂无 Skills\n请尝试同步或选择其他仓库" : "No skills in this repository\nTry syncing or select another repository" }
+
+    // ContentView 新增的本地化字符串
+    static var settings: String { language == .chinese ? "设置" : "Settings" }
+    static var description: String { language == .chinese ? "描述" : "Description" }
+    static var lastSynced: String { language == .chinese ? "最后同步: %@" : "Last synced: %@" }
+    static var importSkill: String { language == .chinese ? "导入 Skill" : "Import Skill" }
+    static var localPath: String { language == .chinese ? "本地路径" : "Local Path" }
+    static var installAgentsFirst: String { language == .chinese ? "请先安装 AI Agent" : "Install AI Agents first" }
+    static var noSkillsAssigned: String { language == .chinese ? "未分配 Skills" : "No skills assigned" }
+    static var configuration: String { language == .chinese ? "配置" : "Configuration" }
+    static var saveConfigFailed: String { language == .chinese ? "保存配置失败" : "Failed to save config" }
+    static var browse: String { language == .chinese ? "浏览" : "Browse" }
+    static var addSkill: String { language == .chinese ? "添加 Skill" : "Add Skill" }
 }
 
 // MARK: - View Model
@@ -606,6 +721,9 @@ class AppViewModel: ObservableObject {
     @Published var repositories: [SkillRepository] = []
     @Published var installedSkills: [InstalledSkill] = []
     @Published var agents: [Agent] = []
+
+    // Logger
+    let logger = LogManager.shared
 
     // UI State
     @Published var selectedTab: Tab = .repositories
@@ -664,6 +782,7 @@ class AppViewModel: ObservableObject {
         case marketplace
         case agents
         case installed
+        case logs
 
         var displayName: String {
             switch self {
@@ -671,6 +790,7 @@ class AppViewModel: ObservableObject {
             case .marketplace: return L.marketplaceTab
             case .agents: return L.agentsTab
             case .installed: return L.installedTab
+            case .logs: return L.logsTab
             }
         }
 
@@ -680,6 +800,7 @@ class AppViewModel: ObservableObject {
             case .marketplace: return "cart.fill"
             case .agents: return "cpu.fill"
             case .installed: return "checkmark.circle.fill"
+            case .logs: return "doc.text.magnifyingglass"
             }
         }
 
@@ -689,6 +810,7 @@ class AppViewModel: ObservableObject {
             case .marketplace: return .orange
             case .agents: return .green
             case .installed: return .purple
+            case .logs: return .gray
             }
         }
     }
@@ -1420,22 +1542,29 @@ class AppViewModel: ObservableObject {
 
     // MARK: - Skill Installation
     func installSkill(_ skill: RemoteSkill) {
+        logger.info("开始安装 Skill: \(skill.name) (id: \(skill.id))", category: "Install")
+
         guard !installedSkills.contains(where: { $0.originalRemoteId == skill.id && $0.repositoryId == skill.repositoryId }) else {
+            logger.warning("Skill \(skill.name) 已安装，跳过", category: "Install")
             return // 已安装
         }
 
         // 找到对应的仓库
         guard let repository = repositories.first(where: { $0.id == skill.repositoryId }),
               !repository.localPath.isEmpty else {
+            logger.error("安装失败：仓库未同步", category: "Install")
             showToast("请先同步仓库后再安装", type: .warning)
             return
         }
+
+        logger.info("找到仓库: \(repository.name), localPath: \(repository.localPath)", category: "Install")
 
         let fileManager = FileManager.default
         let homeDir = NSHomeDirectory()
 
         // 源路径：仓库中的 skill 目录
         let sourcePath = "\(repository.localPath)\(repository.skillPath)/\(skill.relativePath)"
+        logger.info("源路径: \(sourcePath)", category: "Install")
 
         // 目标路径：本地安装目录（使用 仓库名/skill名 的层级结构区分不同仓库的同名skill）
         let sanitizedRepoName = repository.name.replacingOccurrences(of: "/", with: "-")
@@ -1456,9 +1585,12 @@ class AppViewModel: ObservableObject {
             let sourceExists = fileManager.fileExists(atPath: sourcePath, isDirectory: &isSourceDirectory)
 
             guard sourceExists else {
+                logger.error("源文件不存在: \(sourcePath)", category: "Install")
                 showToast("源文件不存在: \(sourcePath)", type: .error)
                 return
             }
+
+            logger.info("源路径类型: \(isSourceDirectory.boolValue ? "目录" : "文件")", category: "Install")
 
             if isSourceDirectory.boolValue {
                 // 情况1：sourcePath 是目录，遍历复制内容
@@ -1518,6 +1650,7 @@ class AppViewModel: ObservableObject {
         installedSkills.append(installed)
         saveData()
 
+        logger.info("Skill 安装完成: \(skill.name), 本地路径: \(localPath)", category: "Install")
         showToast("已安装 Skill: \(skill.name)", type: .success)
     }
 
@@ -1950,11 +2083,17 @@ class AppViewModel: ObservableObject {
     }
 
     func toggleSkillForAgent(_ skill: InstalledSkill, agent: Agent) {
+        logger.info("切换 Skill 状态: \(skill.name) -> Agent: \(agent.name)", category: "Toggle")
+
         if let agentIndex = agents.firstIndex(where: { $0.id == agent.id }) {
+            let isEnabling = !agents[agentIndex].enabledSkillIds.contains(skill.id)
+
             if agents[agentIndex].enabledSkillIds.contains(skill.id) {
                 agents[agentIndex].enabledSkillIds.remove(skill.id)
+                logger.info("已禁用 Skill: \(skill.name) 从 Agent: \(agent.name)", category: "Toggle")
             } else {
                 agents[agentIndex].enabledSkillIds.insert(skill.id)
+                logger.info("已启用 Skill: \(skill.name) 到 Agent: \(agent.name)", category: "Toggle")
             }
             saveData()
 
@@ -1972,7 +2111,13 @@ class AppViewModel: ObservableObject {
             }
 
             // 实时更新 Agent 配置文件 - 使用更新后的 agent
+            logger.info("正在应用配置到 Agent: \(agent.name)", category: "Config")
             applyConfigToAgent(updatedAgent)
+
+            let action = isEnabling ? "启用" : "禁用"
+            showToast("已\(action) Skill: \(skill.name)", type: .success)
+        } else {
+            logger.error("切换失败：找不到 Agent \(agent.name)", category: "Toggle")
         }
     }
 
@@ -1984,13 +2129,11 @@ class AppViewModel: ObservableObject {
     func applyConfigToAgent(_ agent: Agent) {
         let enabledSkills = installedSkills.filter { agent.enabledSkillIds.contains($0.id) }
 
-        print("[DEBUG] === applyConfigToAgent ===")
-        print("[DEBUG] Agent: \(agent.name) (id: \(agent.id))")
-        print("[DEBUG] Agent.enabledSkillIds: \(agent.enabledSkillIds)")
-        print("[DEBUG] installedSkills count: \(installedSkills.count)")
-        print("[DEBUG] installedSkills IDs: \(installedSkills.map { $0.id })")
-        print("[DEBUG] enabledSkills count: \(enabledSkills.count)")
-        print("[DEBUG] enabledSkills names: \(enabledSkills.map { $0.name })")
+        logger.info("=== 应用配置到 Agent ===", category: "Config")
+        logger.info("Agent: \(agent.name) (id: \(agent.id))", category: "Config")
+        logger.info("配置类型: \(agent.configType.rawValue)", category: "Config")
+        logger.info("已启用 Skills: \(enabledSkills.map { $0.name })", category: "Config")
+        logger.debug("Agent.enabledSkillIds: \(agent.enabledSkillIds)", category: "Config")
 
         switch agent.id {
         case "claude-code":
@@ -2094,9 +2237,9 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill '\(skillLinkName)' -> '\(skillSourcePath)'")
+                logger.info("创建符号链接: \(skillLinkName) -> \(skillSourcePath)", category: "Config")
             } catch {
-                print("Failed to link skill '\(skillLinkName)': \(error)")
+                logger.error("创建符号链接失败 '\(skillLinkName)': \(error)", category: "Config")
             }
         }
 
@@ -2105,7 +2248,7 @@ class AppViewModel: ObservableObject {
             if !enabledSkillNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
-                print("Removed skill link: \(existingSkill)")
+                logger.info("移除符号链接: \(existingSkill)", category: "Config")
             }
         }
 
@@ -2118,13 +2261,14 @@ class AppViewModel: ObservableObject {
         let skillsDir = directory.replacingOccurrences(of: "~", with: homeDir)
         let fileManager = FileManager.default
 
-        print("Applying skills to directory: \(skillsDir)")
+        logger.info("应用 Skills 到目录: \(skillsDir)", category: "Config")
 
         // 确保 skills 目录存在
         do {
             try fileManager.createDirectory(atPath: skillsDir, withIntermediateDirectories: true)
+            logger.info("创建/确认目录存在: \(skillsDir)", category: "Config")
         } catch {
-            print("Failed to create directory: \(error)")
+            logger.error("创建目录失败: \(error)", category: "Config")
             return
         }
 
@@ -2164,9 +2308,9 @@ class AppViewModel: ObservableObject {
             // 创建符号链接
             do {
                 try fileManager.createSymbolicLink(atPath: skillLinkPath, withDestinationPath: skillSourcePath)
-                print("Linked skill '\(skillLinkName)' -> '\(skillSourcePath)'")
+                logger.info("创建符号链接: \(skillLinkName) -> \(skillSourcePath)", category: "Config")
             } catch {
-                print("Failed to link skill '\(skillLinkName)': \(error)")
+                logger.error("创建符号链接失败 '\(skillLinkName)': \(error)", category: "Config")
             }
         }
 
@@ -2175,11 +2319,11 @@ class AppViewModel: ObservableObject {
             if !enabledSkillNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
-                print("Removed skill link: \(existingSkill)")
+                logger.info("移除符号链接: \(existingSkill)", category: "Config")
             }
         }
 
-        print("\(agent.name) skills updated: \(skills.count) enabled in \(skillsDir)")
+        logger.info("\(agent.name) 配置已更新: \(skills.count) 个 Skills 已启用", category: "Config")
     }
 
     // MARK: - OpenClaw Skills 配置管理
@@ -2481,7 +2625,7 @@ class AppViewModel: ObservableObject {
             if !enabledSkillLinkNames.contains(existingSkill) {
                 let skillLinkPath = "\(skillsDir)/\(existingSkill)"
                 try? fileManager.removeItem(atPath: skillLinkPath)
-                print("Removed skill link: \(existingSkill)")
+                logger.info("移除符号链接: \(existingSkill)", category: "Config")
             }
         }
 
@@ -2895,7 +3039,7 @@ class AppViewModel: ObservableObject {
     }
 
     // MARK: - Persistence
-    private func saveData() {
+    func saveData() {
         let defaults = UserDefaults.standard
         if let reposData = try? JSONEncoder().encode(repositories) {
             defaults.set(reposData, forKey: "repositories")
